@@ -1,81 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// PDF and DOCX parsing libraries
-// Note: These need to be installed and may require additional config
-// npm install pdf-parse mammoth
-
-// Configure API route to accept large files (App Router)
 export const runtime = 'nodejs'
-export const maxDuration = 60 // 60 seconds timeout
-export const dynamic = 'force-dynamic'
+export const maxDuration = 300 // 5 minutes for large files
 
+/**
+ * Process a file that was already uploaded to Vercel Blob
+ * This endpoint receives the blob URL, downloads it, extracts content, and saves to Supabase
+ */
 export async function POST(request: NextRequest) {
   try {
-    console.log('=== Upload Started ===')
-    const formData = await request.formData()
-    const file = formData.get('file') as File
-    const projectId = formData.get('projectId') as string
-    const category = formData.get('category') as string
+    const body = await request.json()
+    const { blobUrl, filename, projectId, category, fileSize, mimeType } = body
 
-    console.log('File info:', {
-      name: file?.name,
-      size: file?.size,
-      type: file?.type,
-      projectId,
-      category
-    })
+    console.log('Processing blob:', { blobUrl, filename, fileSize, projectId, category })
 
-    if (!file || !projectId || !category) {
+    if (!blobUrl || !filename || !projectId || !category) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    // Validate file size (4MB max - Vercel has strict 4.5MB payload limit)
-    // For larger files, use /api/documents/upload-blob (requires Vercel Blob setup)
-    const MAX_SIZE = 4 * 1024 * 1024
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json(
-        {
-          error: 'File too large (max 4MB for direct upload)',
-          hint: 'For larger files, configure Vercel Blob Storage. See VERCEL_BLOB_SETUP.md',
-          fileSize: file.size,
-          maxSize: MAX_SIZE,
-          fileSizeMB: (file.size / 1024 / 1024).toFixed(2)
-        },
-        { status: 400 }
-      )
+    // Download file from blob
+    console.log('Downloading from blob...')
+    const response = await fetch(blobUrl)
+    if (!response.ok) {
+      throw new Error(`Failed to download from blob: ${response.statusText}`)
     }
 
-    // Extract text content based on file type
-    console.log('Starting extraction for type:', file.type)
+    const arrayBuffer = await response.arrayBuffer()
+    console.log('Downloaded, size:', arrayBuffer.byteLength)
+
+    // Extract content based on mime type
     let extractedContent = ''
-    const buffer = await file.arrayBuffer()
 
     try {
-      if (file.type === 'application/pdf') {
+      if (mimeType === 'application/pdf') {
         console.log('Extracting PDF...')
-        extractedContent = await extractPDF(buffer)
+        extractedContent = await extractPDF(arrayBuffer)
       } else if (
-        file.type ===
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-        file.type === 'application/msword'
+        mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        mimeType === 'application/msword'
       ) {
         console.log('Extracting DOCX...')
-        extractedContent = await extractDOCX(buffer)
-      } else if (file.type === 'text/plain') {
+        extractedContent = await extractDOCX(arrayBuffer)
+      } else if (mimeType === 'text/plain') {
         console.log('Extracting TXT...')
         const decoder = new TextDecoder()
-        extractedContent = decoder.decode(buffer)
+        extractedContent = decoder.decode(arrayBuffer)
       } else {
-        console.error('Unsupported file type:', file.type)
-        return NextResponse.json(
-          { error: 'Unsupported file type', fileType: file.type },
-          { status: 400 }
-        )
+        throw new Error(`Unsupported file type: ${mimeType}`)
       }
+
       console.log('Extraction successful, length:', extractedContent.length)
     } catch (extractError) {
       console.error('Content extraction error:', extractError)
@@ -83,32 +60,26 @@ export async function POST(request: NextRequest) {
         {
           error: 'Failed to extract content from file',
           details: extractError instanceof Error ? extractError.message : 'Unknown error',
-          fileType: file.type
         },
         { status: 500 }
       )
     }
 
     if (!extractedContent || extractedContent.trim().length === 0) {
-      console.error('No content extracted')
       return NextResponse.json(
         { error: 'No text content could be extracted' },
         { status: 400 }
       )
     }
 
-    // Create Supabase client with service role for server operations
-    console.log('Creating Supabase client...')
+    // Save to Supabase
+    console.log('Saving to Supabase...')
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
     if (!supabaseUrl || !supabaseKey) {
-      console.error('Missing env vars:', { hasUrl: !!supabaseUrl, hasKey: !!supabaseKey })
       return NextResponse.json(
-        {
-          error: 'Server configuration error',
-          details: 'Missing Supabase credentials. Check environment variables.'
-        },
+        { error: 'Server configuration error' },
         { status: 500 }
       )
     }
@@ -120,17 +91,15 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Insert document into database
-    console.log('Saving to database...')
     const { data, error } = await supabase
       .from('knowledge_base_docs')
       .insert({
         project_id: projectId,
-        filename: file.name,
+        filename: filename,
         category: category,
         extracted_content: extractedContent,
-        file_size_bytes: file.size,
-        mime_type: file.type,
+        file_size_bytes: fileSize,
+        mime_type: mimeType,
       })
       .select()
       .single()
@@ -142,36 +111,33 @@ export async function POST(request: NextRequest) {
           error: 'Failed to save document',
           details: error.message,
           hint: error.hint,
-          code: error.code
         },
         { status: 500 }
       )
     }
 
-    console.log('Upload successful!')
+    console.log('Save successful!')
 
     return NextResponse.json({
       success: true,
       document: data,
-      message: 'Document uploaded successfully',
+      message: 'Document processed successfully from Blob',
     })
   } catch (error) {
-    console.error('Upload error:', error)
+    console.error('Process blob error:', error)
     return NextResponse.json(
       {
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
       },
       { status: 500 }
     )
   }
 }
 
-// PDF extraction using pdf-parse
+// PDF extraction
 async function extractPDF(buffer: ArrayBuffer): Promise<string> {
   try {
-    // Dynamically import pdf-parse (Node.js module)
     // @ts-expect-error - pdf-parse doesn't have TypeScript types
     const pdfParse = (await import('pdf-parse')).default
     const data = await pdfParse(Buffer.from(buffer))
@@ -182,10 +148,9 @@ async function extractPDF(buffer: ArrayBuffer): Promise<string> {
   }
 }
 
-// DOCX extraction using mammoth
+// DOCX extraction
 async function extractDOCX(buffer: ArrayBuffer): Promise<string> {
   try {
-    // Dynamically import mammoth (Node.js module)
     const mammoth = await import('mammoth')
     const result = await mammoth.extractRawText({ buffer: Buffer.from(buffer) })
     return result.value
