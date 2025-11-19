@@ -59,30 +59,32 @@ export default function DocumentUpload({
 
     setUploading(true)
     try {
-      // TODO: Call API route to extract full content and save to DB
       const formData = new FormData()
       formData.append('file', selectedFile)
       formData.append('projectId', projectId)
       formData.append('category', category)
 
-      // const response = await fetch('/api/documents/upload', {
-      //   method: 'POST',
-      //   body: formData,
-      // })
+      const response = await fetch('/api/documents/upload', {
+        method: 'POST',
+        body: formData,
+      })
 
-      // if (!response.ok) throw new Error('Upload failed')
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Upload failed')
+      }
 
-      // Simulate upload
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const result = await response.json()
+      console.log('Upload successful:', result)
 
-      alert('Documento subido exitosamente (demo)')
+      alert(`✅ Documento "${selectedFile.name}" subido exitosamente`)
       setIsOpen(false)
       setSelectedFile(null)
       setExtractionResult(null)
       onUploadComplete()
     } catch (error) {
       console.error('Error uploading:', error)
-      alert('Error al subir el documento')
+      alert(`❌ Error al subir el documento: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setUploading(false)
     }

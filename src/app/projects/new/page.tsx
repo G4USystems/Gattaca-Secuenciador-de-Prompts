@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { createProject } from '@/hooks/useProjects'
 
 export default function NewProjectPage() {
   const router = useRouter()
@@ -18,18 +19,18 @@ export default function NewProjectPage() {
     setLoading(true)
 
     try {
-      // TODO: Create project in Supabase
-      console.log('Creating project:', formData)
+      const newProject = await createProject({
+        name: formData.name,
+        description: formData.description || undefined,
+      })
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      console.log('Project created:', newProject)
 
       // Redirect to project page
-      // router.push(`/projects/${newProjectId}`)
-      alert('Proyecto creado (demo - conectar a Supabase)')
+      router.push(`/projects/${newProject.id}`)
     } catch (error) {
       console.error('Error creating project:', error)
-      alert('Error al crear el proyecto')
+      alert(`Error al crear el proyecto: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
