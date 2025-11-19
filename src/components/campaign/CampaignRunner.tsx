@@ -86,7 +86,18 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
         setIndustry('')
         loadCampaigns()
       } else {
-        throw new Error(data.error || 'Failed to create campaign')
+        // Show detailed error message
+        let errorMsg = data.error || 'Failed to create campaign'
+        if (data.details) {
+          errorMsg += `\n\nDetails: ${data.details}`
+        }
+        if (data.hint) {
+          errorMsg += `\n\nHint: ${data.hint}`
+        }
+        if (data.code) {
+          errorMsg += `\n\nError code: ${data.code}`
+        }
+        throw new Error(errorMsg)
       }
     } catch (error) {
       console.error('Error creating campaign:', error)
