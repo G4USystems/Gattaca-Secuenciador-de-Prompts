@@ -12,10 +12,19 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('=== Upload Started ===')
     const formData = await request.formData()
     const file = formData.get('file') as File
     const projectId = formData.get('projectId') as string
     const category = formData.get('category') as string
+
+    console.log('File info:', {
+      name: file?.name,
+      size: file?.size,
+      type: file?.type,
+      projectId,
+      category
+    })
 
     if (!file || !projectId || !category) {
       return NextResponse.json(
@@ -41,36 +50,47 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract text content based on file type
+    console.log('Starting extraction for type:', file.type)
     let extractedContent = ''
     const buffer = await file.arrayBuffer()
 
     try {
       if (file.type === 'application/pdf') {
+        console.log('Extracting PDF...')
         extractedContent = await extractPDF(buffer)
       } else if (
         file.type ===
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
         file.type === 'application/msword'
       ) {
+        console.log('Extracting DOCX...')
         extractedContent = await extractDOCX(buffer)
       } else if (file.type === 'text/plain') {
+        console.log('Extracting TXT...')
         const decoder = new TextDecoder()
         extractedContent = decoder.decode(buffer)
       } else {
+        console.error('Unsupported file type:', file.type)
         return NextResponse.json(
-          { error: 'Unsupported file type' },
+          { error: 'Unsupported file type', fileType: file.type },
           { status: 400 }
         )
       }
+      console.log('Extraction successful, length:', extractedContent.length)
     } catch (extractError) {
       console.error('Content extraction error:', extractError)
       return NextResponse.json(
-        { error: 'Failed to extract content from file' },
+        {
+          error: 'Failed to extract content from file',
+          details: extractError instanceof Error ? extractError.message : 'Unknown error',
+          fileType: file.type
+        },
         { status: 500 }
       )
     }
 
     if (!extractedContent || extractedContent.trim().length === 0) {
+      console.error('No content extracted')
       return NextResponse.json(
         { error: 'No text content could be extracted' },
         { status: 400 }
@@ -78,18 +98,30 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Supabase client with service role for server operations
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
+    console.log('Creating Supabase client...')
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Missing env vars:', { hasUrl: !!supabaseUrl, hasKey: !!supabaseKey })
+      return NextResponse.json(
+        {
+          error: 'Server configuration error',
+          details: 'Missing Supabase credentials. Check environment variables.'
         },
-      }
-    )
+        { status: 500 }
+      )
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
 
     // Insert document into database
+    console.log('Saving to database...')
     const { data, error } = await supabase
       .from('knowledge_base_docs')
       .insert({
@@ -106,10 +138,17 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Database error:', error)
       return NextResponse.json(
-        { error: 'Failed to save document' },
+        {
+          error: 'Failed to save document',
+          details: error.message,
+          hint: error.hint,
+          code: error.code
+        },
         { status: 500 }
       )
     }
+
+    console.log('Upload successful!')
 
     return NextResponse.json({
       success: true,
@@ -119,7 +158,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Upload error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     )
   }
