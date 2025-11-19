@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 // Configure API route to accept large files
 export const runtime = 'nodejs'
 export const maxDuration = 60
+export const dynamic = 'force-dynamic'
 
 /**
  * API Route: Extract text content from uploaded files WITHOUT saving to database
@@ -20,12 +21,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate total size (100MB max for all files combined)
+    // Validate total size (30MB max for all files combined)
     const totalSize = files.reduce((sum, file) => sum + file.size, 0)
-    const MAX_TOTAL_SIZE = 100 * 1024 * 1024
+    const MAX_TOTAL_SIZE = 30 * 1024 * 1024
     if (totalSize > MAX_TOTAL_SIZE) {
       return NextResponse.json(
-        { error: `Total file size exceeds 100MB (${(totalSize / 1024 / 1024).toFixed(2)}MB)` },
+        {
+          error: `Total file size exceeds 30MB (${(totalSize / 1024 / 1024).toFixed(2)}MB)`,
+          hint: 'Upload fewer files at once or compress them first',
+          totalSize,
+          maxSize: MAX_TOTAL_SIZE
+        },
         { status: 400 }
       )
     }
@@ -52,13 +58,14 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // Validate individual file size (50MB max)
-          const MAX_SIZE = 50 * 1024 * 1024
+          // Validate individual file size (10MB max per file)
+          // Note: Larger sizes may fail due to platform limits
+          const MAX_SIZE = 10 * 1024 * 1024
           if (file.size > MAX_SIZE) {
             return {
               filename: file.name,
               success: false,
-              error: 'Archivo muy grande (máx 50MB)',
+              error: `Archivo muy grande (máx 10MB). Tamaño: ${(file.size / 1024 / 1024).toFixed(2)}MB`,
               fileSize: file.size,
               mimeType: file.type,
             }
