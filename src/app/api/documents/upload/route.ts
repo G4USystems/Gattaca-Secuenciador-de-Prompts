@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js'
 // Configure API route to accept large files (App Router)
 export const runtime = 'nodejs'
 export const maxDuration = 60 // 60 seconds timeout
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,11 +24,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate file size (50MB max)
-    const MAX_SIZE = 50 * 1024 * 1024
+    // Validate file size (10MB max - larger files may fail due to platform limits)
+    // Note: Vercel has 4.5MB limit, increase this only if self-hosting
+    const MAX_SIZE = 10 * 1024 * 1024
     if (file.size > MAX_SIZE) {
       return NextResponse.json(
-        { error: 'File too large (max 50MB)' },
+        {
+          error: 'File too large (max 10MB)',
+          hint: 'Compress your PDF or convert to text first. See UPLOAD_SIZE_ISSUE.md for solutions.',
+          fileSize: file.size,
+          maxSize: MAX_SIZE
+        },
         { status: 400 }
       )
     }

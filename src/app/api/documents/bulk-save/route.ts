@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Configure API route
+// Configure API route to handle large JSON payloads
 export const runtime = 'nodejs'
 export const maxDuration = 60
+export const dynamic = 'force-dynamic'
+// Note: Next.js App Router doesn't support bodyParser config
+// Large JSON bodies may fail - consider using streaming or chunking
 
 interface DocumentToSave {
   filename: string
