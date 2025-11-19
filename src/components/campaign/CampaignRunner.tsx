@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Play, CheckCircle, Clock, AlertCircle, Download } from 'lucide-react'
+import { Play, CheckCircle, Clock, AlertCircle, Download, Copy } from 'lucide-react'
 
 interface CampaignRunnerProps {
   projectId: string
@@ -27,6 +27,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
   const [showNewForm, setShowNewForm] = useState(false)
   const [creating, setCreating] = useState(false)
   const [running, setRunning] = useState<string | null>(null)
+  const [duplicating, setDuplicating] = useState<string | null>(null)
 
   // Form state
   const [ecpName, setEcpName] = useState('')
@@ -124,6 +125,33 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
       alert(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setRunning(null)
+    }
+  }
+
+  const handleDuplicateCampaign = async (campaignId: string) => {
+    setDuplicating(campaignId)
+    try {
+      const response = await fetch('/api/campaign/duplicate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ campaignId }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        alert('✅ Campaign duplicated successfully')
+        loadCampaigns()
+      } else {
+        throw new Error(data.error || 'Failed to duplicate')
+      }
+    } catch (error) {
+      console.error('Error duplicating campaign:', error)
+      alert(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setDuplicating(null)
     }
   }
 
@@ -344,6 +372,16 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                     View Summary
                   </button>
                 )}
+
+                <button
+                  onClick={() => handleDuplicateCampaign(campaign.id)}
+                  disabled={duplicating === campaign.id}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                  title="Duplicate this campaign"
+                >
+                  <Copy size={16} />
+                  {duplicating === campaign.id ? 'Duplicating...' : 'Duplicate'}
+                </button>
               </div>
 
               <p className="text-xs text-gray-500 mt-3">
