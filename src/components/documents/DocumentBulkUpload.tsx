@@ -38,14 +38,46 @@ export default function DocumentBulkUpload({
 
     setExtracting(true)
     try {
-      const formData = new FormData()
-      files.forEach((file) => {
-        formData.append('files', file)
+      console.log(`Uploading ${files.length} files to Blob Storage...`)
+
+      // Step 1: Upload all files to Blob Storage using client upload
+      const { upload } = await import('@vercel/blob/client')
+
+      const uploadPromises = files.map(async (file) => {
+        try {
+          console.log(`Uploading ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB) to Blob...`)
+
+          const blob = await upload(file.name, file, {
+            access: 'public',
+            handleUploadUrl: '/api/documents/upload-url',
+          })
+
+          console.log(`✅ Uploaded ${file.name} to Blob: ${blob.url}`)
+
+          return {
+            blobUrl: blob.url,
+            filename: file.name,
+            fileSize: file.size,
+            mimeType: file.type,
+          }
+        } catch (error) {
+          console.error(`Failed to upload ${file.name} to Blob:`, error)
+          throw error
+        }
       })
 
-      const response = await fetch('/api/documents/extract', {
+      const blobFiles = await Promise.all(uploadPromises)
+      console.log(`All files uploaded to Blob. Now extracting content...`)
+
+      // Step 2: Tell backend to download from Blob and extract content
+      const response = await fetch('/api/documents/extract-from-blob', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          blobFiles,
+        }),
       })
 
       if (!response.ok) {
@@ -54,6 +86,7 @@ export default function DocumentBulkUpload({
       }
 
       const result = await response.json()
+      console.log(`Extraction complete:`, result.summary)
 
       // Set default category based on filename or first successful extraction
       const filesWithDefaults = result.files.map((file: ExtractedFile) => ({
@@ -198,7 +231,7 @@ export default function DocumentBulkUpload({
                   Click para seleccionar múltiples archivos
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  PDF, DOCX o TXT (max 50MB cada uno)
+                  PDF, DOCX o TXT (archivos grandes usan Blob Storage)
                 </p>
               </div>
               <input
