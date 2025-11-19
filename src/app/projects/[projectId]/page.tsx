@@ -2,15 +2,17 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Settings, Rocket, Database } from 'lucide-react'
+import { ArrowLeft, FileText, Settings, Rocket, Database, Workflow } from 'lucide-react'
 import { useProject } from '@/hooks/useProjects'
 import { useDocuments, deleteDocument } from '@/hooks/useDocuments'
 import DocumentUpload from '@/components/documents/DocumentUpload'
 import DocumentBulkUpload from '@/components/documents/DocumentBulkUpload'
 import DocumentList from '@/components/documents/DocumentList'
 import TokenMonitor from '@/components/TokenMonitor'
+import FlowSetup from '@/components/flow/FlowSetup'
+import CampaignRunner from '@/components/campaign/CampaignRunner'
 
-type TabType = 'documents' | 'config' | 'campaigns' | 'context'
+type TabType = 'documents' | 'flow' | 'config' | 'campaigns' | 'context'
 
 export default function ProjectPage({
   params,
@@ -23,8 +25,7 @@ export default function ProjectPage({
 
   const tabs = [
     { id: 'documents' as TabType, label: 'Documentos', icon: FileText },
-    { id: 'context' as TabType, label: 'Configuración de Contexto', icon: Database },
-    { id: 'config' as TabType, label: 'Prompts', icon: Settings },
+    { id: 'flow' as TabType, label: 'Flow Setup', icon: Workflow },
     { id: 'campaigns' as TabType, label: 'Campañas', icon: Rocket },
   ]
 
@@ -109,14 +110,11 @@ export default function ProjectPage({
                 totalTokens={totalTokens}
               />
             )}
-            {activeTab === 'context' && (
-              <ContextConfigTab projectId={params.projectId} project={project} documents={documents} />
-            )}
-            {activeTab === 'config' && (
-              <PromptsConfigTab projectId={params.projectId} project={project} />
+            {activeTab === 'flow' && (
+              <FlowSetup projectId={params.projectId} documents={documents} />
             )}
             {activeTab === 'campaigns' && (
-              <CampaignsTab projectId={params.projectId} />
+              <CampaignRunner projectId={params.projectId} />
             )}
           </div>
         </div>
@@ -293,22 +291,3 @@ function PromptsConfigTab({ projectId, project }: { projectId: string; project: 
   )
 }
 
-function CampaignsTab({ projectId }: { projectId: string }) {
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Campañas por Nicho</h2>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          Nueva Campaña
-        </button>
-      </div>
-      <div className="text-center py-12 text-gray-500">
-        <Rocket size={48} className="mx-auto mb-4 opacity-50" />
-        <p>No hay campañas todavía</p>
-        <p className="text-sm mt-2">
-          Crea una campaña especificando el nicho, país e industria
-        </p>
-      </div>
-    </div>
-  )
-}
