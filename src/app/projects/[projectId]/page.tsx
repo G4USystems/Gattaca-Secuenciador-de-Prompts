@@ -10,6 +10,7 @@ import DocumentBulkUpload from '@/components/documents/DocumentBulkUpload'
 import DocumentList from '@/components/documents/DocumentList'
 import TokenMonitor from '@/components/TokenMonitor'
 import FlowSetup from '@/components/flow/FlowSetup'
+import CampaignRunner from '@/components/campaign/CampaignRunner'
 
 type TabType = 'documents' | 'flow' | 'config' | 'campaigns' | 'context'
 
@@ -113,7 +114,7 @@ export default function ProjectPage({
               <FlowSetup projectId={params.projectId} documents={documents} />
             )}
             {activeTab === 'campaigns' && (
-              <CampaignsTab projectId={params.projectId} />
+              <CampaignRunner projectId={params.projectId} />
             )}
           </div>
         </div>
@@ -290,22 +291,3 @@ function PromptsConfigTab({ projectId, project }: { projectId: string; project: 
   )
 }
 
-function CampaignsTab({ projectId }: { projectId: string }) {
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Campañas por Nicho</h2>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          Nueva Campaña
-        </button>
-      </div>
-      <div className="text-center py-12 text-gray-500">
-        <Rocket size={48} className="mx-auto mb-4 opacity-50" />
-        <p>No hay campañas todavía</p>
-        <p className="text-sm mt-2">
-          Crea una campaña especificando el nicho, país e industria
-        </p>
-      </div>
-    </div>
-  )
-}
