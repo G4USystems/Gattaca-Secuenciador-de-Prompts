@@ -24,16 +24,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate file size (10MB max - larger files may fail due to platform limits)
-    // Note: Vercel has 4.5MB limit, increase this only if self-hosting
-    const MAX_SIZE = 10 * 1024 * 1024
+    // Validate file size (4MB max - Vercel has strict 4.5MB payload limit)
+    // For larger files, use /api/documents/upload-blob (requires Vercel Blob setup)
+    const MAX_SIZE = 4 * 1024 * 1024
     if (file.size > MAX_SIZE) {
       return NextResponse.json(
         {
-          error: 'File too large (max 10MB)',
-          hint: 'Compress your PDF or convert to text first. See UPLOAD_SIZE_ISSUE.md for solutions.',
+          error: 'File too large (max 4MB for direct upload)',
+          hint: 'For larger files, configure Vercel Blob Storage. See VERCEL_BLOB_SETUP.md',
           fileSize: file.size,
-          maxSize: MAX_SIZE
+          maxSize: MAX_SIZE,
+          fileSizeMB: (file.size / 1024 / 1024).toFixed(2)
         },
         { status: 400 }
       )

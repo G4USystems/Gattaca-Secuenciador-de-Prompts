@@ -64,8 +64,9 @@ export default function DocumentUpload({
       formData.append('projectId', projectId)
       formData.append('category', category)
 
-      // Use Vercel Blob for large files (> 5MB) or if enabled
-      const USE_BLOB = process.env.NEXT_PUBLIC_USE_BLOB === 'true' || selectedFile.size > 5 * 1024 * 1024
+      // Use Vercel Blob for large files (> 4MB) or if enabled
+      // Note: Direct upload has 4MB limit due to Vercel constraints
+      const USE_BLOB = process.env.NEXT_PUBLIC_USE_BLOB === 'true' || selectedFile.size > 4 * 1024 * 1024
       const endpoint = USE_BLOB ? '/api/documents/upload-blob' : '/api/documents/upload'
 
       const response = await fetch(endpoint, {
@@ -74,8 +75,23 @@ export default function DocumentUpload({
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Upload failed')
+        let errorData
+        try {
+          errorData = await response.json()
+        } catch (e) {
+          // If response is not JSON (e.g., 413 Request Entity Too Large)
+          throw new Error(`Upload failed: ${response.status} ${response.statusText}. File may be too large.`)
+        }
+
+        // Show detailed error message
+        let errorMsg = errorData.error || 'Upload failed'
+        if (errorData.hint) {
+          errorMsg += `\n\n${errorData.hint}`
+        }
+        if (errorData.fileSizeMB) {
+          errorMsg += `\n\nFile size: ${errorData.fileSizeMB}MB`
+        }
+        throw new Error(errorMsg)
       }
 
       const result = await response.json()
