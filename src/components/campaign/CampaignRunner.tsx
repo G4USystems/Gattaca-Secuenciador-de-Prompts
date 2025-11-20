@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Play, CheckCircle, Clock, AlertCircle, Download } from 'lucide-react'
+import { Play, CheckCircle, Clock, AlertCircle, Download, Plus, X } from 'lucide-react'
 
 interface CampaignRunnerProps {
   projectId: string
@@ -33,6 +33,21 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
   const [problemCore, setProblemCore] = useState('')
   const [country, setCountry] = useState('')
   const [industry, setIndustry] = useState('')
+  const [customVariables, setCustomVariables] = useState<Array<{ key: string; value: string }>>([])
+
+  const addCustomVariable = () => {
+    setCustomVariables([...customVariables, { key: '', value: '' }])
+  }
+
+  const updateCustomVariable = (index: number, field: 'key' | 'value', value: string) => {
+    const updated = [...customVariables]
+    updated[index][field] = value
+    setCustomVariables(updated)
+  }
+
+  const removeCustomVariable = (index: number) => {
+    setCustomVariables(customVariables.filter((_, i) => i !== index))
+  }
 
   useEffect(() => {
     loadCampaigns()
@@ -59,6 +74,14 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
       return
     }
 
+    // Convert custom variables array to object
+    const customVarsObject: Record<string, string> = {}
+    customVariables.forEach((v) => {
+      if (v.key.trim()) {
+        customVarsObject[v.key.trim()] = v.value
+      }
+    })
+
     setCreating(true)
     try {
       const response = await fetch('/api/campaign/create', {
@@ -72,6 +95,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
           problem_core: problemCore,
           country,
           industry,
+          custom_variables: customVarsObject,
         }),
       })
 
@@ -84,6 +108,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
         setProblemCore('')
         setCountry('')
         setIndustry('')
+        setCustomVariables([])
         loadCampaigns()
       } else {
         // Show detailed error message
@@ -252,6 +277,65 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+            </div>
+
+            {/* Custom Variables Section */}
+            <div className="border-t border-gray-200 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Variables Personalizadas
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Define variables que se reemplazarán en los prompts con formato {'{{'} {'{variable}'} {'}}'}
+                  </p>
+                </div>
+                <button
+                  onClick={addCustomVariable}
+                  className="px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 inline-flex items-center gap-1"
+                >
+                  <Plus size={16} />
+                  Agregar Variable
+                </button>
+              </div>
+
+              {customVariables.length > 0 && (
+                <div className="space-y-2">
+                  {customVariables.map((variable, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={variable.key}
+                        onChange={(e) => updateCustomVariable(index, 'key', e.target.value)}
+                        placeholder="nombre_variable"
+                        className="w-1/3 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                      <span className="text-gray-400">=</span>
+                      <input
+                        type="text"
+                        value={variable.value}
+                        onChange={(e) => updateCustomVariable(index, 'value', e.target.value)}
+                        placeholder="Valor de la variable"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                      <button
+                        onClick={() => removeCustomVariable(index)}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {customVariables.length === 0 && (
+                <div className="text-center py-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                  <p className="text-sm text-gray-500">
+                    No hay variables personalizadas. Click en "Agregar Variable" para crear una.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3">

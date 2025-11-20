@@ -137,6 +137,7 @@ export interface Database {
           created_at: string
           updated_at: string
           error_message: string | null
+          custom_variables: Json
         }
         Insert: {
           id?: string
@@ -159,6 +160,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           error_message?: string | null
+          custom_variables?: Json
         }
         Update: {
           id?: string
@@ -181,6 +183,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           error_message?: string | null
+          custom_variables?: Json
         }
       }
       execution_logs: {

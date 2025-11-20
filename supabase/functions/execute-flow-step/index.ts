@@ -140,12 +140,19 @@ serve(async (req) => {
     }
 
     // Replace variables in prompt
-    const finalPrompt = step_config.prompt
+    let finalPrompt = step_config.prompt
       .replace(/\{\{ecp_name\}\}/g, campaign.ecp_name || '')
       .replace(/\{\{problem_core\}\}/g, campaign.problem_core || '')
       .replace(/\{\{country\}\}/g, campaign.country || '')
       .replace(/\{\{industry\}\}/g, campaign.industry || '')
       .replace(/\{\{client_name\}\}/g, project.name || '')
+
+    // Replace custom variables
+    const customVariables = campaign.custom_variables || {}
+    for (const [key, value] of Object.entries(customVariables)) {
+      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
+      finalPrompt = finalPrompt.replace(regex, String(value))
+    }
 
     // Call Gemini
     const geminiApiKey = Deno.env.get('GOOGLE_API_KEY')!
