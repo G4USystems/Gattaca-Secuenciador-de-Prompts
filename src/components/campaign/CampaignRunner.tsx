@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Play, CheckCircle, Clock, AlertCircle, Download, Plus, X } from 'lucide-react'
+import { Play, CheckCircle, Clock, AlertCircle, Download, Plus, X, Edit2 } from 'lucide-react'
 
 interface CampaignRunnerProps {
   projectId: string
@@ -39,6 +39,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
   const [showNewForm, setShowNewForm] = useState(false)
   const [creating, setCreating] = useState(false)
   const [running, setRunning] = useState<string | null>(null)
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null)
 
   // Form state
   const [ecpName, setEcpName] = useState('')
@@ -103,6 +104,23 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
       }))
       setCustomVariables(varsFromProject)
     }
+    setEditingCampaignId(null)
+    setShowNewForm(true)
+  }
+
+  const handleEditCampaign = (campaign: Campaign) => {
+    // Load campaign data into form
+    setEcpName(campaign.ecp_name)
+    setProblemCore(campaign.problem_core)
+    setCountry(campaign.country)
+    setIndustry(campaign.industry)
+
+    // Load custom variables
+    const customVars = campaign.custom_variables as Record<string, string> || {}
+    const varsArray = Object.entries(customVars).map(([key, value]) => ({ key, value }))
+    setCustomVariables(varsArray)
+
+    setEditingCampaignId(campaign.id)
     setShowNewForm(true)
   }
 
@@ -122,8 +140,14 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
 
     setCreating(true)
     try {
-      const response = await fetch('/api/campaign/create', {
-        method: 'POST',
+      const isEditing = !!editingCampaignId
+      const url = isEditing
+        ? `/api/campaign/${editingCampaignId}`
+        : '/api/campaign/create'
+      const method = isEditing ? 'PATCH' : 'POST'
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -140,13 +164,14 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
       const data = await response.json()
 
       if (data.success) {
-        alert('✅ Campaign created successfully')
+        alert(isEditing ? '✅ Campaign updated successfully' : '✅ Campaign created successfully')
         setShowNewForm(false)
         setEcpName('')
         setProblemCore('')
         setCountry('')
         setIndustry('')
         setCustomVariables([])
+        setEditingCampaignId(null)
         loadCampaigns()
       } else {
         // Show detailed error message
@@ -266,12 +291,17 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
       {/* New Campaign Form */}
       {showNewForm && (
         <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-          <h3 className="font-semibold mb-4">Create New Campaign</h3>
+          <h3 className="font-semibold mb-4">
+            {editingCampaignId ? 'Edit Campaign' : 'Create New Campaign'}
+          </h3>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                ECP Name *
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                <span>ECP Name *</span>
+                <code className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                  {'{{'} ecp_name {'}}'}
+                </code>
               </label>
               <input
                 type="text"
@@ -283,8 +313,11 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Problem Core *
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                <span>Problem Core *</span>
+                <code className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                  {'{{'} problem_core {'}}'}
+                </code>
               </label>
               <input
                 type="text"
@@ -297,8 +330,11 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Country *
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                  <span>Country *</span>
+                  <code className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                    {'{{'} country {'}}'}
+                  </code>
                 </label>
                 <input
                   type="text"
@@ -310,8 +346,11 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Industry *
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                  <span>Industry *</span>
+                  <code className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                    {'{{'} industry {'}}'}
+                  </code>
                 </label>
                 <input
                   type="text"
@@ -420,7 +459,10 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                 disabled={creating}
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                {creating ? 'Creating...' : 'Create Campaign'}
+                {creating
+                  ? (editingCampaignId ? 'Updating...' : 'Creating...')
+                  : (editingCampaignId ? 'Update Campaign' : 'Create Campaign')
+                }
               </button>
               <button
                 onClick={() => setShowNewForm(false)}
@@ -473,14 +515,23 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
               {/* Actions */}
               <div className="flex gap-3">
                 {campaign.status === 'draft' && (
-                  <button
-                    onClick={() => handleRunCampaign(campaign.id)}
-                    disabled={running === campaign.id}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed inline-flex items-center gap-2"
-                  >
-                    <Play size={16} />
-                    {running === campaign.id ? 'Running...' : 'Run Campaign'}
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleEditCampaign(campaign)}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 inline-flex items-center gap-2"
+                    >
+                      <Edit2 size={16} />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleRunCampaign(campaign.id)}
+                      disabled={running === campaign.id}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                    >
+                      <Play size={16} />
+                      {running === campaign.id ? 'Running...' : 'Run Campaign'}
+                    </button>
+                  </>
                 )}
 
                 {campaign.status === 'completed' && (

@@ -16,11 +16,26 @@ export default function FlowSetup({ projectId, documents }: FlowSetupProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [editingStep, setEditingStep] = useState<FlowStep | null>(null)
+  const [projectVariables, setProjectVariables] = useState<any[]>([])
 
-  // Load flow config
+  // Load flow config and project variables
   useEffect(() => {
     loadFlowConfig()
+    loadProjectVariables()
   }, [projectId])
+
+  const loadProjectVariables = async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}`)
+      const data = await response.json()
+
+      if (data.success && data.project) {
+        setProjectVariables(data.project.variable_definitions || [])
+      }
+    } catch (error) {
+      console.error('Error loading project variables:', error)
+    }
+  }
 
   const loadFlowConfig = async () => {
     try {
@@ -189,6 +204,7 @@ export default function FlowSetup({ projectId, documents }: FlowSetupProps) {
           step={editingStep}
           documents={documents}
           allSteps={flowConfig.steps}
+          projectVariables={projectVariables}
           onSave={handleStepUpdate}
           onCancel={() => setEditingStep(null)}
         />

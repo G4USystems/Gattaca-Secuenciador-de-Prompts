@@ -9,6 +9,7 @@ interface StepEditorProps {
   step: FlowStep
   documents: any[]
   allSteps: FlowStep[]
+  projectVariables: Array<{ name: string; default_value?: string; description?: string }>
   onSave: (step: FlowStep) => void
   onCancel: () => void
 }
@@ -17,6 +18,7 @@ export default function StepEditor({
   step,
   documents,
   allSteps,
+  projectVariables,
   onSave,
   onCancel,
 }: StepEditorProps) {
@@ -186,7 +188,22 @@ export default function StepEditor({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500"
             />
             <p className="text-xs text-gray-500 mt-2">
-              Available variables: {'{'}{'{'} ecp_name {'}'}{'}'}, {'{'}{'{'} country {'}'}{'}'}, {'{'}{'{'} industry {'}'}{'}'}, {'{'}{'{'} problem_core {'}'}{'}'}, {'{'}{'{'} client_name {'}'}{'}'}
+              <span className="font-medium">Available variables:</span>{' '}
+              {[
+                'ecp_name',
+                'problem_core',
+                'country',
+                'industry',
+                'client_name',
+                ...projectVariables.map((v) => v.name),
+              ].map((varName, index, arr) => (
+                <span key={varName}>
+                  <code className="text-gray-700 bg-gray-100 px-1 rounded">
+                    {'{'}{'{'} {varName} {'}'}{'}'}
+                  </code>
+                  {index < arr.length - 1 ? ', ' : ''}
+                </span>
+              ))}
             </p>
           </div>
         </div>
