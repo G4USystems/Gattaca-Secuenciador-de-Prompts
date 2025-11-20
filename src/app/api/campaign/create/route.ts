@@ -10,7 +10,7 @@ export const maxDuration = 30
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { projectId, ecp_name, problem_core, country, industry } = body
+    const { projectId, ecp_name, problem_core, country, industry, custom_variables } = body
 
     if (!projectId || !ecp_name || !problem_core || !country || !industry) {
       return NextResponse.json(
@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       country,
       industry,
       status: 'draft',
+      custom_variables: custom_variables || {},
     }
 
     // Try to add new columns (will be ignored if they don't exist)
