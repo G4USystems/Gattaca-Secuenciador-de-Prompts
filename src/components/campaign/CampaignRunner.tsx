@@ -270,8 +270,11 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                ECP Name *
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                <span>ECP Name *</span>
+                <code className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                  {'{{'} ecp_name {'}}'}
+                </code>
               </label>
               <input
                 type="text"
@@ -283,8 +286,11 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Problem Core *
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                <span>Problem Core *</span>
+                <code className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                  {'{{'} problem_core {'}}'}
+                </code>
               </label>
               <input
                 type="text"
@@ -297,8 +303,11 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Country *
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                  <span>Country *</span>
+                  <code className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                    {'{{'} country {'}}'}
+                  </code>
                 </label>
                 <input
                   type="text"
@@ -310,8 +319,11 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Industry *
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                  <span>Industry *</span>
+                  <code className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                    {'{{'} industry {'}}'}
+                  </code>
                 </label>
                 <input
                   type="text"
