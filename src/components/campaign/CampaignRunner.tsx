@@ -128,7 +128,15 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
         alert(`✅ Campaign completed! ${data.steps_completed} steps executed in ${(data.duration_ms / 1000).toFixed(1)}s`)
         loadCampaigns()
       } else {
-        throw new Error(data.error || 'Execution failed')
+        // Show detailed error message
+        let errorMsg = data.error || 'Execution failed'
+        if (data.details) {
+          errorMsg += `\n\nDetalles: ${data.details}`
+        }
+        if (data.completed_steps && data.completed_steps.length > 0) {
+          errorMsg += `\n\nPasos completados: ${data.completed_steps.length}`
+        }
+        throw new Error(errorMsg)
       }
     } catch (error) {
       console.error('Error running campaign:', error)
