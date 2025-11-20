@@ -148,7 +148,7 @@ serve(async (req) => {
       .replace(/\{\{client_name\}\}/g, project.name || '')
 
     // Call Gemini
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY')!
+    const geminiApiKey = Deno.env.get('GOOGLE_API_KEY')!
     const modelName = step_config.model || 'gemini-2.0-flash-exp'
 
     const geminiResponse = await fetch(
