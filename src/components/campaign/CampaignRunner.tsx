@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Play, CheckCircle, Clock, AlertCircle, Download, Plus, X, Edit2, ChevronDown, ChevronRight, Settings } from 'lucide-react'
+import { Play, CheckCircle, Clock, AlertCircle, Download, Plus, X, Edit2, ChevronDown, ChevronRight, Settings, Trash2 } from 'lucide-react'
 import CampaignFlowEditor from './CampaignFlowEditor'
 import { FlowConfig, FlowStep } from '@/types/flow.types'
 
@@ -218,6 +218,30 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
     }
   }
 
+  const handleDeleteCampaign = async (campaignId: string, campaignName: string) => {
+    if (!confirm(`¿Estás seguro de que quieres eliminar la campaña "${campaignName}"? Esta acción no se puede deshacer.`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/campaign/${campaignId}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        alert('✅ Campaign deleted successfully')
+        loadCampaigns()
+      } else {
+        throw new Error(data.error || 'Failed to delete')
+      }
+    } catch (error) {
+      console.error('Error deleting campaign:', error)
+      alert(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
   const handleRunCampaign = async (campaignId: string) => {
     if (!confirm('¿Ejecutar esta campaña? Esto puede tomar varios minutos.')) {
       return
@@ -372,7 +396,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Campañas</h2>
+        <h2 className="text-xl font-semibold text-gray-900">Campañas</h2>
         <button
           onClick={() => {
             if (showNewForm) {
@@ -390,7 +414,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
       {/* New Campaign Form */}
       {showNewForm && (
         <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-          <h3 className="font-semibold mb-4">
+          <h3 className="font-semibold mb-4 text-gray-900">
             {editingCampaignId ? 'Edit Campaign' : 'Create New Campaign'}
           </h3>
 
@@ -589,14 +613,14 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-lg">{campaign.ecp_name}</h3>
+                  <h3 className="font-semibold text-lg text-gray-900">{campaign.ecp_name}</h3>
                   <p className="text-sm text-gray-600 mt-1">
                     {campaign.problem_core} • {campaign.country} • {campaign.industry}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   {getStatusIcon(campaign.status)}
-                  <span className="text-sm font-medium">
+                  <span className="text-sm font-medium text-gray-900">
                     {getStatusLabel(campaign.status)}
                   </span>
                 </div>
@@ -626,15 +650,13 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                       )}
                       Individual Steps ({(campaign.flow_config?.steps || project?.flow_config?.steps)?.length})
                     </button>
-                    {campaign.status === 'draft' && (
-                      <button
-                        onClick={() => setEditingFlowCampaignId(campaign.id)}
-                        className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 inline-flex items-center gap-1"
-                      >
-                        <Settings size={12} />
-                        Edit Flow
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setEditingFlowCampaignId(campaign.id)}
+                      className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 inline-flex items-center gap-1"
+                    >
+                      <Settings size={12} />
+                      Edit Flow
+                    </button>
                   </div>
 
                   {expandedCampaigns.has(campaign.id) && (
@@ -656,7 +678,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                                   <span className="text-xs font-medium text-gray-500">
                                     Step {step.order}
                                   </span>
-                                  <h4 className="font-medium text-sm">{step.name}</h4>
+                                  <h4 className="font-medium text-sm text-gray-900">{step.name}</h4>
                                   {stepStatus === 'completed' && (
                                     <CheckCircle size={16} className="text-green-600" />
                                   )}
@@ -736,6 +758,13 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                     >
                       <Play size={16} />
                       {running === campaign.id ? 'Running...' : 'Run Campaign'}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteCampaign(campaign.id, campaign.ecp_name)}
+                      className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 inline-flex items-center gap-2"
+                    >
+                      <Trash2 size={16} />
+                      Delete
                     </button>
                   </>
                 )}
