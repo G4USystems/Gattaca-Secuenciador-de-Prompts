@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import { FlowStep } from '@/types/flow.types'
+import { FlowStep, OutputFormat } from '@/types/flow.types'
 import { formatTokenCount } from '@/lib/supabase'
 
 interface StepEditorProps {
@@ -13,6 +13,15 @@ interface StepEditorProps {
   onSave: (step: FlowStep) => void
   onCancel: () => void
 }
+
+const OUTPUT_FORMATS: { value: OutputFormat; label: string; description: string }[] = [
+  { value: 'text', label: 'Plain Text', description: 'Simple text output' },
+  { value: 'markdown', label: 'Markdown', description: 'Formatted markdown with headings, lists, etc.' },
+  { value: 'json', label: 'JSON', description: 'Structured data in JSON format' },
+  { value: 'csv', label: 'CSV', description: 'Comma-separated values for spreadsheets' },
+  { value: 'html', label: 'HTML', description: 'HTML formatted output' },
+  { value: 'xml', label: 'XML', description: 'XML structured data' },
+]
 
 export default function StepEditor({
   step,
@@ -172,6 +181,29 @@ export default function StepEditor({
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Output Format */}
+          <div>
+            <label className="block font-medium text-gray-900 mb-2">
+              📄 Output Format
+            </label>
+            <select
+              value={editedStep.output_format || 'text'}
+              onChange={(e) =>
+                setEditedStep((prev) => ({ ...prev, output_format: e.target.value as OutputFormat }))
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 text-gray-900"
+            >
+              {OUTPUT_FORMATS.map((format) => (
+                <option key={format.value} value={format.value}>
+                  {format.label} - {format.description}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-2">
+              The AI will be instructed to format the output in the selected format.
+            </p>
           </div>
 
           {/* Prompt */}
