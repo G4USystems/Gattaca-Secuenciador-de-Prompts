@@ -48,7 +48,8 @@ export default function CampaignFlowEditor({
         onSave(flowConfig)
         onClose()
       } else {
-        throw new Error(data.error || 'Failed to save')
+        const errorMsg = data.details ? `${data.error}: ${data.details}` : data.error || 'Failed to save'
+        throw new Error(errorMsg)
       }
     } catch (error) {
       console.error('Error saving campaign flow config:', error)
