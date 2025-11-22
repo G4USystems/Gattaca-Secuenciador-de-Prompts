@@ -9,6 +9,8 @@
  * - Prompts editables con variables
  */
 
+export type OutputFormat = 'text' | 'markdown' | 'json' | 'csv' | 'html' | 'xml'
+
 export interface FlowStep {
   id: string
   name: string
@@ -23,6 +25,9 @@ export interface FlowStep {
 
   // IDs de steps previos cuyos outputs se incluyen automáticamente
   auto_receive_from: string[]
+
+  // Formato de salida deseado
+  output_format?: OutputFormat
 
   // Configuración opcional del modelo
   model?: 'gemini-2.0-flash-exp' | 'gemini-2.0-pro-exp'

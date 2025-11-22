@@ -11,12 +11,15 @@ If the information is not in the provided documents, explicitly state: "Informat
 
 const TOKEN_LIMIT = 2_000_000
 
+type OutputFormat = 'text' | 'markdown' | 'json' | 'csv' | 'html' | 'xml'
+
 interface FlowStep {
   id: string
   name: string
   prompt: string
   base_doc_ids: string[]
   auto_receive_from: string[]
+  output_format?: OutputFormat
   model?: string
   temperature?: number
   max_tokens?: number
@@ -25,6 +28,24 @@ interface FlowStep {
 interface RequestPayload {
   campaign_id: string
   step_config: FlowStep
+}
+
+function getFormatInstructions(format: OutputFormat): string {
+  switch (format) {
+    case 'markdown':
+      return 'OUTPUT FORMAT REQUIREMENT: Format your response using Markdown syntax with proper headings (#, ##, ###), lists (- or 1.), **bold**, *italic*, code blocks (```), and tables where appropriate.'
+    case 'json':
+      return 'OUTPUT FORMAT REQUIREMENT: Format your response as valid JSON. Use proper structure with objects {}, arrays [], strings "", numbers, and booleans. Ensure the JSON is parseable.'
+    case 'csv':
+      return 'OUTPUT FORMAT REQUIREMENT: Format your response as CSV (Comma-Separated Values). Use the first row for headers, separate columns with commas, and wrap fields containing commas in double quotes.'
+    case 'html':
+      return 'OUTPUT FORMAT REQUIREMENT: Format your response as valid HTML. Use semantic tags like <h1>, <h2>, <p>, <ul>, <li>, <table>, <strong>, <em>, etc. Include proper structure.'
+    case 'xml':
+      return 'OUTPUT FORMAT REQUIREMENT: Format your response as valid XML. Use proper tag structure with opening and closing tags, attributes where appropriate, and proper nesting.'
+    case 'text':
+    default:
+      return 'OUTPUT FORMAT REQUIREMENT: Format your response as plain text. Use clear paragraphs, simple structure, and avoid special formatting characters.'
+  }
 }
 
 serve(async (req) => {
@@ -154,6 +175,11 @@ serve(async (req) => {
       finalPrompt = finalPrompt.replace(regex, String(value))
     }
 
+    // Add output format instructions if specified
+    const outputFormat = step_config.output_format || 'text'
+    const formatInstructions = getFormatInstructions(outputFormat)
+    const promptWithFormat = finalPrompt + '\n\n' + formatInstructions
+
     // Call Gemini
     const geminiApiKey = Deno.env.get('GOOGLE_API_KEY')!
     const modelName = step_config.model || 'gemini-2.0-flash-exp'
@@ -171,7 +197,7 @@ serve(async (req) => {
             {
               parts: [
                 { text: contextString },
-                { text: '\n\n--- TASK ---\n\n' + finalPrompt },
+                { text: '\n\n--- TASK ---\n\n' + promptWithFormat },
               ],
             },
           ],

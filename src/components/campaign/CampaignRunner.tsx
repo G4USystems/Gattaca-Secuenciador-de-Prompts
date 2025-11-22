@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Play, CheckCircle, Clock, AlertCircle, Download, Plus, X, Edit2, ChevronDown, ChevronRight, Settings } from 'lucide-react'
 import CampaignFlowEditor from './CampaignFlowEditor'
-import { FlowConfig } from '@/types/flow.types'
+import { FlowConfig, FlowStep } from '@/types/flow.types'
 
 interface CampaignRunnerProps {
   projectId: string
@@ -25,19 +25,6 @@ interface Campaign {
   flow_config?: FlowConfig | null
 }
 
-interface FlowStep {
-  id: string
-  name: string
-  description?: string
-  order: number
-  prompt: string
-  base_doc_ids: string[]
-  auto_receive_from: string[]
-  model?: string
-  temperature?: number
-  max_tokens?: number
-}
-
 interface Project {
   id: string
   name: string
@@ -47,11 +34,7 @@ interface Project {
     required: boolean
     description?: string
   }>
-  flow_config?: {
-    steps: FlowStep[]
-    version?: string
-    description?: string
-  }
+  flow_config?: FlowConfig
 }
 
 export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
@@ -360,6 +343,24 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
     return runningStep?.campaignId === campaignId && runningStep?.stepId === stepId
   }
 
+  const getFileExtensionAndMimeType = (format?: string): { extension: string; mimeType: string } => {
+    switch (format) {
+      case 'markdown':
+        return { extension: 'md', mimeType: 'text/markdown' }
+      case 'json':
+        return { extension: 'json', mimeType: 'application/json' }
+      case 'csv':
+        return { extension: 'csv', mimeType: 'text/csv' }
+      case 'html':
+        return { extension: 'html', mimeType: 'text/html' }
+      case 'xml':
+        return { extension: 'xml', mimeType: 'application/xml' }
+      case 'text':
+      default:
+        return { extension: 'txt', mimeType: 'text/plain' }
+    }
+  }
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -638,7 +639,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
 
                   {expandedCampaigns.has(campaign.id) && (
                     <div className="ml-6 space-y-2 border-l-2 border-gray-200 pl-4">
-                      {(campaign.flow_config?.steps || project.flow_config.steps)
+                      {(campaign.flow_config?.steps || project?.flow_config?.steps || [])
                         .sort((a, b) => a.order - b.order)
                         .map((step) => {
                           const stepStatus = getStepStatus(campaign, step.id)
@@ -692,15 +693,17 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                                 {stepOutput && stepOutput.output && (
                                   <button
                                     onClick={() => {
+                                      const { extension, mimeType } = getFileExtensionAndMimeType(step.output_format)
                                       const text = `=== ${step.name} ===\n\n${stepOutput.output}\n\nTokens: ${stepOutput.tokens || 'N/A'}\nCompleted: ${stepOutput.completed_at || 'N/A'}`
-                                      const blob = new Blob([text], { type: 'text/plain' })
+                                      const blob = new Blob([text], { type: mimeType })
                                       const url = URL.createObjectURL(blob)
                                       const a = document.createElement('a')
                                       a.href = url
-                                      a.download = `${campaign.ecp_name.replace(/\s+/g, '_')}_${step.name.replace(/\s+/g, '_')}.txt`
+                                      a.download = `${campaign.ecp_name.replace(/\s+/g, '_')}_${step.name.replace(/\s+/g, '_')}.${extension}`
                                       a.click()
                                     }}
                                     className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 inline-flex items-center gap-1"
+                                    title={`Download as .${getFileExtensionAndMimeType(step.output_format).extension}`}
                                   >
                                     <Download size={14} />
                                     Download
