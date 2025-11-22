@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Play, CheckCircle, Clock, AlertCircle, Download, Plus, X, Edit2, ChevronDown, ChevronRight, Settings } from 'lucide-react'
 import CampaignFlowEditor from './CampaignFlowEditor'
-import { FlowConfig } from '@/types/flow.types'
+import { FlowConfig, FlowStep } from '@/types/flow.types'
 
 interface CampaignRunnerProps {
   projectId: string
@@ -25,19 +25,6 @@ interface Campaign {
   flow_config?: FlowConfig | null
 }
 
-interface FlowStep {
-  id: string
-  name: string
-  description?: string
-  order: number
-  prompt: string
-  base_doc_ids: string[]
-  auto_receive_from: string[]
-  model?: string
-  temperature?: number
-  max_tokens?: number
-}
-
 interface Project {
   id: string
   name: string
@@ -47,11 +34,7 @@ interface Project {
     required: boolean
     description?: string
   }>
-  flow_config?: {
-    steps: FlowStep[]
-    version?: string
-    description?: string
-  }
+  flow_config?: FlowConfig
 }
 
 export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
