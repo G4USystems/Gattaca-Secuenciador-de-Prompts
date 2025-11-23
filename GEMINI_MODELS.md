@@ -1,8 +1,8 @@
 # Configuración de Modelos Gemini
 
-## Modelo Actual: Gemini 1.5 Pro
+## Modelo Actual: Gemini 2.0 Flash
 
-Este proyecto ahora usa **`gemini-1.5-pro-002`** (Gemini Pro), el modelo de producción más reciente y estable de Google.
+Este proyecto ahora usa **`gemini-2.0-flash-exp`** (Gemini 2.0 Flash), el modelo más reciente de Google con capacidades avanzadas.
 
 ## Modelos Disponibles
 
