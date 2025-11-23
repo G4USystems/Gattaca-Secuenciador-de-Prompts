@@ -1,40 +1,49 @@
 # Configuración de Modelos Gemini
 
-## Modelo Actual: Gemini 1.5 Pro
+## Modelo Actual: Gemini 2.5 Flash
 
-Este proyecto ahora usa **`gemini-1.5-pro-002`** (Gemini 1.5 Pro), el modelo de producción estable con límites de cuota más altos para API paga.
+Este proyecto ahora usa **`gemini-2.5-flash-002`** (Gemini 2.5 Flash), el modelo más reciente de Google (2025).
 
-**¿Por qué Gemini 1.5 Pro y no 2.0 Flash?**
-- ✅ Límites de cuota más altos con API paga (millones de tokens/minuto vs 250K)
-- ✅ Mejor para uso en producción con alto volumen
-- ✅ Modelo estable y probado
-- ✅ Excelente calidad para análisis estratégicos complejos
+**¿Por qué Gemini 2.5 Flash?**
+- ✅ Modelo más reciente de la familia Gemini (2025)
+- ✅ Mejores capacidades de razonamiento y thinking
+- ✅ Límites de cuota más altos para API paga
+- ✅ Mejor rendimiento en benchmarks agénticos
+- ✅ Mejoras en uso de herramientas y formateo de respuestas
+- ✅ Contexto de 1 millón de tokens
 
-## Modelos Disponibles
+## Modelos Disponibles (2025)
 
-### Gemini Pro (Recomendado para Producción)
-- **`gemini-1.5-pro-002`** ✅ - Versión más reciente (ACTUALMENTE CONFIGURADO)
+### Gemini 2.5 (Más Recientes - Recomendados)
+- **`gemini-2.5-flash-002`** ✅ - Flash más reciente (ACTUALMENTE CONFIGURADO)
+- **`gemini-2.5-pro-002`** - Pro más reciente (mejor calidad, más caro)
+- **`gemini-2.5-flash-lite`** - Versión ligera (menor latencia, más económico)
+
+### Gemini 2.0
+- **`gemini-2.0-flash-exp`** - Experimental (límites de cuota bajos)
+- **`gemini-2.0-flash-thinking-exp`** - Con razonamiento profundo
+
+### Gemini 1.5 (Anteriores)
+- **`gemini-1.5-pro-002`** - Pro estable anterior
 - **`gemini-1.5-pro`** - Versión estándar
-- **`gemini-1.5-pro-latest`** - Siempre apunta a la última versión
+- **`gemini-1.5-flash-002`** - Flash anterior
 
-**Características:**
-- Contexto: Hasta 2M tokens
-- Salida: Hasta 8,192 tokens
-- Mejor calidad y razonamiento
-- Ideal para análisis complejos y estratégicos
+**Características de Gemini 2.5:**
+- **Contexto**: 1 millón de tokens
+- **Salida**: Hasta 8,192 tokens
+- **Thinking**: Capacidades de razonamiento avanzado
+- **Agentic**: Mejor uso de herramientas y agentes
+- **Formateo**: Mejoras en headers, listas y tablas
+- **Benchmarks**: Top en GPQA, AIME 2025, SWE-Bench
 
-### Gemini Flash (Alternativa Rápida)
-- **`gemini-2.0-flash-exp`** - Experimental, más rápido
-- **`gemini-1.5-flash`** - Versión estable rápida
-- **`gemini-1.5-flash-002`** - Flash más reciente
+**Comparación de Modelos Gemini 2.5:**
 
-**Características:**
-- Más rápido y económico
-- Buena calidad para tareas simples
-- Menos costo por token
-
-### Gemini Thinking (Razonamiento Profundo)
-- **`gemini-2.0-flash-thinking-exp-01-21`** - Con razonamiento interno
+| Característica | 2.5 Flash | 2.5 Pro | 2.5 Flash-Lite |
+|----------------|-----------|---------|----------------|
+| Calidad | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
+| Velocidad | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| Costo | $$ | $$$$ | $ |
+| Uso recomendado | General | Análisis complejos | Alto volumen |
 
 ## Cómo Cambiar de Modelo
 
@@ -44,12 +53,14 @@ Edita estos archivos:
 
 **`supabase/functions/generate-ecp-step/index.ts`** (línea 165):
 ```typescript
-const modelName = 'gemini-1.5-pro-002' // Cambia aquí
+const modelName = 'gemini-2.5-flash-002' // Cambia aquí
+// Opciones: 'gemini-2.5-pro-002', 'gemini-2.5-flash-lite'
 ```
 
 **`supabase/functions/execute-flow-step/index.ts`** (línea 185):
 ```typescript
-const modelName = step_config.model || 'gemini-1.5-pro-002' // Cambia aquí
+const modelName = step_config.model || 'gemini-2.5-flash-002' // Cambia aquí
+// Opciones: 'gemini-2.5-pro-002', 'gemini-2.5-flash-lite'
 ```
 
 ### Opción 2: Por Paso Individual
@@ -60,19 +71,28 @@ Al configurar un step en el flow, puedes especificar el modelo:
 {
   id: "step_1",
   name: "Análisis Profundo",
-  model: "gemini-1.5-pro-002",  // Modelo específico para este paso
+  model: "gemini-2.5-pro-002",  // Usa Pro para análisis complejos
   temperature: 0.7,
   max_tokens: 8192,
   // ... otros campos
 }
+
+{
+  id: "step_2",
+  name: "Resumen Rápido",
+  model: "gemini-2.5-flash-lite",  // Usa Lite para tareas simples
+  temperature: 0.7,
+  max_tokens: 4096,
+  // ... otros campos
+}
 ```
 
-### Opción 3: Usar Gemini Flash para Ahorrar Costos
+### Opción 3: Usar Gemini 2.5 Pro para Máxima Calidad
 
-Si quieres reducir costos en pasos simples:
+Para análisis estratégicos complejos que requieren el mejor razonamiento:
 
 ```typescript
-const modelName = 'gemini-1.5-flash-002' // Más barato y rápido
+const modelName = 'gemini-2.5-pro-002' // Mejor calidad, más caro
 ```
 
 ## Configuración de API Key
@@ -106,23 +126,38 @@ supabase secrets set GEMINI_API_KEY=tu-api-key-aquí
 2. Crea un nuevo API key
 3. Copia la clave y configúrala en tus variables de entorno
 
-## Costos Estimados (Gemini 1.5 Pro)
+## Costos Estimados (Gemini 2.5)
 
-- **Input**: ~$1.25 por 1M tokens
+### Gemini 2.5 Flash (Recomendado)
+- **Input**: ~$0.075 por 1M tokens (hasta 128K contexto)
+- **Output**: ~$0.30 por 1M tokens
+- Muy económico para alto volumen
+
+### Gemini 2.5 Pro (Máxima Calidad)
+- **Input**: ~$1.25 por 1M tokens (hasta 128K contexto)
 - **Output**: ~$5.00 por 1M tokens
+- Para análisis que requieren la mejor calidad
 
-Con 100 campañas/mes usando ~50K tokens promedio:
-- Costo mensual: ~$10-30 USD
+### Gemini 2.5 Flash-Lite (Más Económico)
+- **Menor costo** que Flash regular
+- Optimizado para **alto volumen** y **baja latencia**
 
-## Ventajas de Gemini Pro vs Flash
+**Estimación con 100 campañas/mes:**
+- Con 2.5 Flash: ~$5-15 USD/mes
+- Con 2.5 Pro: ~$20-40 USD/mes
+- Con 2.5 Flash-Lite: ~$2-8 USD/mes
 
-| Característica | Gemini Pro 1.5 | Gemini Flash 1.5 |
-|----------------|----------------|------------------|
-| Calidad | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
-| Velocidad | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| Costo | $$$ | $ |
-| Contexto | 2M tokens | 1M tokens |
-| Razonamiento | Excelente | Bueno |
+## Ventajas de Gemini 2.5 vs Versiones Anteriores
+
+| Característica | Gemini 2.5 Flash | Gemini 2.5 Pro | Gemini 1.5 Pro |
+|----------------|------------------|----------------|----------------|
+| Calidad | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| Velocidad | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
+| Costo | $ | $$$ | $$$ |
+| Contexto | 1M tokens | 1M tokens | 2M tokens |
+| Razonamiento | Excelente (2025) | Superior (2025) | Excelente |
+| Thinking | ✅ Sí | ✅ Sí (Deep Think) | Limitado |
+| Agentic | ✅ Mejorado | ✅ Avanzado | Básico |
 
 ## Después de Cambiar el Modelo
 
