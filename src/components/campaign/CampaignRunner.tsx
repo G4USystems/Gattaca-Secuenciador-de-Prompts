@@ -311,7 +311,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
             ...step,
             // Update old models to the new Gemini 2.5 Pro
             model: step.model === 'gemini-2.0-flash-exp' || step.model === 'gemini-2.0-pro-exp'
-              ? 'gemini-2.5-pro-002'
+              ? 'gemini-2.5-pro'
               : step.model
           }))
         }
