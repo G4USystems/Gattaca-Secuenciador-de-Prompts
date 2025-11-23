@@ -73,9 +73,9 @@ export default function StepEditor({
         {/* Header */}
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Edit Step: "{step.name}"</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Edit Step</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Configure documents and dependencies for this step
+              Configure name, description, documents, prompt, and dependencies
             </p>
           </div>
           <button
@@ -88,6 +88,38 @@ export default function StepEditor({
 
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Step Name */}
+          <div>
+            <label className="block font-medium text-gray-900 mb-2">
+              📌 Step Name
+            </label>
+            <input
+              type="text"
+              value={editedStep.name}
+              onChange={(e) =>
+                setEditedStep((prev) => ({ ...prev, name: e.target.value }))
+              }
+              placeholder="e.g., Market Research, Competitor Analysis"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-gray-400"
+            />
+          </div>
+
+          {/* Step Description */}
+          <div>
+            <label className="block font-medium text-gray-900 mb-2">
+              📝 Description <span className="text-gray-500 font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={editedStep.description}
+              onChange={(e) =>
+                setEditedStep((prev) => ({ ...prev, description: e.target.value }))
+              }
+              placeholder="Brief description of what this step does"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-gray-400"
+            />
+          </div>
+
           {/* Base Documents */}
           <div>
             <div className="flex items-center justify-between mb-3">
