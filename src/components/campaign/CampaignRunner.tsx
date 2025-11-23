@@ -302,6 +302,21 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
       // Create a new campaign name with "(Copy)" suffix
       const newName = `${campaign.ecp_name} (Copy)`
 
+      // Copy and update flow_config to use the latest model
+      let updatedFlowConfig = campaign.flow_config
+      if (updatedFlowConfig?.steps) {
+        updatedFlowConfig = {
+          ...updatedFlowConfig,
+          steps: updatedFlowConfig.steps.map(step => ({
+            ...step,
+            // Update old models to the new Gemini 2.5 Pro
+            model: step.model === 'gemini-2.0-flash-exp' || step.model === 'gemini-2.0-pro-exp'
+              ? 'gemini-2.5-pro-002'
+              : step.model
+          }))
+        }
+      }
+
       // Prepare the campaign data to duplicate
       const duplicateData = {
         projectId,
@@ -310,7 +325,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
         country: campaign.country,
         industry: campaign.industry,
         custom_variables: campaign.custom_variables,
-        flow_config: campaign.flow_config, // Copy the flow configuration
+        flow_config: updatedFlowConfig, // Use updated flow configuration
       }
 
       const response = await fetch('/api/campaign/create', {
@@ -324,7 +339,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
       const data = await response.json()
 
       if (data.success) {
-        alert(`✅ Campaign duplicated successfully as "${newName}"`)
+        alert(`✅ Campaign duplicated successfully as "${newName}" with updated Gemini 2.5 Pro model`)
         loadCampaigns()
       } else {
         throw new Error(data.error || 'Failed to duplicate campaign')
