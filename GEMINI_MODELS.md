@@ -1,22 +1,23 @@
 # Configuración de Modelos Gemini
 
-## Modelo Actual: Gemini 2.5 Flash
+## Modelo Actual: Gemini 2.5 Pro
 
-Este proyecto ahora usa **`gemini-2.5-flash-002`** (Gemini 2.5 Flash), el modelo más reciente de Google (2025).
+Este proyecto ahora usa **`gemini-2.5-pro-002`** (Gemini 2.5 Pro), el modelo de máxima calidad de Google (2025).
 
-**¿Por qué Gemini 2.5 Flash?**
-- ✅ Modelo más reciente de la familia Gemini (2025)
-- ✅ Mejores capacidades de razonamiento y thinking
-- ✅ Límites de cuota más altos para API paga
-- ✅ Mejor rendimiento en benchmarks agénticos
-- ✅ Mejoras en uso de herramientas y formateo de respuestas
+**¿Por qué Gemini 2.5 Pro?**
+- ✅ Modelo de MÁXIMA CALIDAD de la familia Gemini (2025)
+- ✅ Razonamiento superior con Deep Think mode
+- ✅ #1 en benchmarks: GPQA, AIME 2025, USAMO
+- ✅ Mejor para análisis estratégicos complejos
+- ✅ Capacidades de thinking avanzadas
 - ✅ Contexto de 1 millón de tokens
+- ✅ Límites de cuota altos para API paga
 
 ## Modelos Disponibles (2025)
 
 ### Gemini 2.5 (Más Recientes - Recomendados)
-- **`gemini-2.5-flash-002`** ✅ - Flash más reciente (ACTUALMENTE CONFIGURADO)
-- **`gemini-2.5-pro-002`** - Pro más reciente (mejor calidad, más caro)
+- **`gemini-2.5-pro-002`** ✅ - Pro más reciente - MÁXIMA CALIDAD (ACTUALMENTE CONFIGURADO)
+- **`gemini-2.5-flash-002`** - Flash más reciente (más rápido y económico)
 - **`gemini-2.5-flash-lite`** - Versión ligera (menor latencia, más económico)
 
 ### Gemini 2.0
@@ -53,14 +54,14 @@ Edita estos archivos:
 
 **`supabase/functions/generate-ecp-step/index.ts`** (línea 165):
 ```typescript
-const modelName = 'gemini-2.5-flash-002' // Cambia aquí
-// Opciones: 'gemini-2.5-pro-002', 'gemini-2.5-flash-lite'
+const modelName = 'gemini-2.5-pro-002' // Cambia aquí
+// Opciones: 'gemini-2.5-flash-002' (más rápido), 'gemini-2.5-flash-lite' (más barato)
 ```
 
 **`supabase/functions/execute-flow-step/index.ts`** (línea 185):
 ```typescript
-const modelName = step_config.model || 'gemini-2.5-flash-002' // Cambia aquí
-// Opciones: 'gemini-2.5-pro-002', 'gemini-2.5-flash-lite'
+const modelName = step_config.model || 'gemini-2.5-pro-002' // Cambia aquí
+// Opciones: 'gemini-2.5-flash-002' (más rápido), 'gemini-2.5-flash-lite' (más barato)
 ```
 
 ### Opción 2: Por Paso Individual
