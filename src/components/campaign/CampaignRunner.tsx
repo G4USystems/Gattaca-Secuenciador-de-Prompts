@@ -699,10 +699,21 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {getStatusIcon(campaign.status)}
-                  <span className="text-sm font-medium text-gray-900">
-                    {getStatusLabel(campaign.status)}
-                  </span>
+                  {running === campaign.id ? (
+                    <>
+                      <Clock size={20} className="text-blue-600 animate-spin" />
+                      <span className="text-sm font-medium text-blue-600">
+                        Running...
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      {getStatusIcon(campaign.status)}
+                      <span className="text-sm font-medium text-gray-900">
+                        {getStatusLabel(campaign.status)}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -851,24 +862,27 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
 
               {/* Actions */}
               <div className="flex gap-3">
+                {/* Edit button - only for draft campaigns */}
                 {campaign.status === 'draft' && (
-                  <>
-                    <button
-                      onClick={() => handleEditCampaign(campaign)}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 inline-flex items-center gap-2"
-                    >
-                      <Edit2 size={16} />
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleRunCampaign(campaign.id)}
-                      disabled={running === campaign.id}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed inline-flex items-center gap-2"
-                    >
-                      <Play size={16} />
-                      {running === campaign.id ? 'Running...' : 'Run Campaign'}
-                    </button>
-                  </>
+                  <button
+                    onClick={() => handleEditCampaign(campaign)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 inline-flex items-center gap-2"
+                  >
+                    <Edit2 size={16} />
+                    Edit
+                  </button>
+                )}
+
+                {/* Run Campaign button - available for draft, completed, and error campaigns */}
+                {(campaign.status === 'draft' || campaign.status === 'completed' || campaign.status === 'error') && (
+                  <button
+                    onClick={() => handleRunCampaign(campaign.id)}
+                    disabled={running === campaign.id}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                  >
+                    <Play size={16} />
+                    {running === campaign.id ? 'Running...' : (campaign.status === 'completed' ? 'Re-run Campaign' : 'Run Campaign')}
+                  </button>
                 )}
 
                 {campaign.status === 'completed' && (
