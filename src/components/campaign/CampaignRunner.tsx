@@ -984,7 +984,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
               )}
 
               {/* Actions */}
-              <div className="flex gap-3">
+              <div className="flex gap-3 flex-wrap">
                 {/* Edit button - only for draft campaigns */}
                 {campaign.status === 'draft' && (
                   <button
@@ -996,19 +996,34 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                   </button>
                 )}
 
-                {/* Run Campaign button - available for draft, completed, and error campaigns */}
-                {(campaign.status === 'draft' || campaign.status === 'completed' || campaign.status === 'error') && (
+                {/* Run/Re-run button - always available except when running */}
+                {campaign.status !== 'running' && (
                   <button
                     onClick={() => handleRunCampaign(campaign.id)}
                     disabled={running === campaign.id}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed inline-flex items-center gap-2"
                   >
                     <Play size={16} />
-                    {running === campaign.id ? 'Running...' : (campaign.status === 'completed' ? 'Re-run Campaign' : 'Run Campaign')}
+                    {running === campaign.id
+                      ? 'Running...'
+                      : (campaign.status === 'draft' ? 'Run Campaign' : 'Re-run Campaign')
+                    }
                   </button>
                 )}
 
-                {campaign.status === 'completed' && (
+                {/* Running indicator */}
+                {campaign.status === 'running' && (
+                  <button
+                    disabled
+                    className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed inline-flex items-center gap-2"
+                  >
+                    <Clock size={16} className="animate-spin" />
+                    Running...
+                  </button>
+                )}
+
+                {/* Download outputs - available when there are step outputs */}
+                {campaign.step_outputs && Object.keys(campaign.step_outputs).length > 0 && (
                   <div className="relative">
                     <button
                       onClick={() => setDownloadFormatMenu(downloadFormatMenu === campaign.id ? null : campaign.id)}
@@ -1049,7 +1064,8 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                   </div>
                 )}
 
-                {campaign.status === 'completed' && (
+                {/* View Summary - available when there are step outputs */}
+                {campaign.step_outputs && Object.keys(campaign.step_outputs).length > 0 && (
                   <button
                     onClick={() => {
                       const outputs = campaign.step_outputs
@@ -1073,18 +1089,6 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                     className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                   >
                     View Summary
-                  </button>
-                )}
-
-                {/* Re-run button for completed or error campaigns */}
-                {(campaign.status === 'completed' || campaign.status === 'error') && (
-                  <button
-                    onClick={() => handleRunCampaign(campaign.id)}
-                    disabled={running === campaign.id}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed inline-flex items-center gap-2"
-                  >
-                    <Play size={16} />
-                    {running === campaign.id ? 'Running...' : 'Re-run Campaign'}
                   </button>
                 )}
 
