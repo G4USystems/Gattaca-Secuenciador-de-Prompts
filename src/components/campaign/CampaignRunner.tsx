@@ -902,10 +902,21 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                   <button
                     onClick={() => {
                       const outputs = campaign.step_outputs
-                      const text = Object.entries(outputs)
-                        .map(([stepId, data]: [string, any]) => {
-                          return `=== ${data.step_name} ===\n\n${data.output}\n\n`
-                        })
+                      const steps = campaign.flow_config?.steps || project?.flow_config?.steps || []
+
+                      // Sort outputs by step order
+                      const sortedOutputs = steps
+                        .sort((a, b) => a.order - b.order)
+                        .map(step => ({
+                          stepId: step.id,
+                          stepName: step.name,
+                          stepOrder: step.order,
+                          data: outputs[step.id]
+                        }))
+                        .filter(item => item.data && item.data.output)
+
+                      const text = sortedOutputs
+                        .map(item => `=== Step ${item.stepOrder}: ${item.stepName} ===\n\n${item.data.output}\n\n`)
                         .join('\n')
 
                       const blob = new Blob([text], { type: 'text/plain' })
@@ -926,10 +937,20 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                   <button
                     onClick={() => {
                       const outputs = campaign.step_outputs
-                      const message = Object.entries(outputs)
-                        .map(([stepId, data]: [string, any]) => {
-                          return `${data.step_name}:\n${data.output.substring(0, 200)}...`
-                        })
+                      const steps = campaign.flow_config?.steps || project?.flow_config?.steps || []
+
+                      // Sort outputs by step order
+                      const sortedOutputs = steps
+                        .sort((a, b) => a.order - b.order)
+                        .map(step => ({
+                          stepName: step.name,
+                          stepOrder: step.order,
+                          data: outputs[step.id]
+                        }))
+                        .filter(item => item.data && item.data.output)
+
+                      const message = sortedOutputs
+                        .map(item => `Step ${item.stepOrder} - ${item.stepName}:\n${item.data.output.substring(0, 200)}...`)
                         .join('\n\n')
                       alert(message)
                     }}
