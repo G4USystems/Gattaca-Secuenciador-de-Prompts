@@ -111,7 +111,7 @@ export default function StepOutputEditor({
               <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
                 Step {stepOrder}
               </span>
-              <h2 className="text-lg font-semibold text-gray-900">{stepName}</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{stepName} - Output</h2>
               {isEdited && (
                 <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded inline-flex items-center gap-1">
                   <Edit2 size={10} />
