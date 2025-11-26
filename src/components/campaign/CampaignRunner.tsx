@@ -858,7 +858,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                                       title="Revisar y editar el output antes de pasar al siguiente paso"
                                     >
                                       <Eye size={14} />
-                                      {stepOutput.edited_at ? 'Editado' : 'Revisar'}
+                                      {stepOutput.edited_at ? 'Output Editado' : 'Revisar Output'}
                                     </button>
                                     <button
                                       onClick={() => {
