@@ -939,6 +939,18 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                   </button>
                 )}
 
+                {/* Re-run button for completed or error campaigns */}
+                {(campaign.status === 'completed' || campaign.status === 'error') && (
+                  <button
+                    onClick={() => handleRunCampaign(campaign.id)}
+                    disabled={running === campaign.id}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                  >
+                    <Play size={16} />
+                    {running === campaign.id ? 'Running...' : 'Re-run Campaign'}
+                  </button>
+                )}
+
                 {/* Duplicate button - available for all campaigns */}
                 <button
                   onClick={() => handleDuplicateCampaign(campaign)}
