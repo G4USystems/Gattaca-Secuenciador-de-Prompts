@@ -996,31 +996,18 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                   </button>
                 )}
 
-                {/* Run/Re-run button - always available except when running */}
-                {campaign.status !== 'running' && (
-                  <button
-                    onClick={() => handleRunCampaign(campaign.id)}
-                    disabled={running === campaign.id}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed inline-flex items-center gap-2"
-                  >
-                    <Play size={16} />
-                    {running === campaign.id
-                      ? 'Running...'
-                      : (campaign.status === 'draft' ? 'Run Campaign' : 'Re-run Campaign')
-                    }
-                  </button>
-                )}
-
-                {/* Running indicator */}
-                {campaign.status === 'running' && (
-                  <button
-                    disabled
-                    className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed inline-flex items-center gap-2"
-                  >
-                    <Clock size={16} className="animate-spin" />
-                    Running...
-                  </button>
-                )}
+                {/* Run/Re-run button - always available */}
+                <button
+                  onClick={() => handleRunCampaign(campaign.id)}
+                  disabled={running === campaign.id || campaign.status === 'running'}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                >
+                  <Play size={16} />
+                  {(running === campaign.id || campaign.status === 'running')
+                    ? 'Running...'
+                    : (campaign.status === 'draft' ? 'Run Campaign' : 'Re-run Campaign')
+                  }
+                </button>
 
                 {/* Download outputs - available when there are step outputs */}
                 {campaign.step_outputs && Object.keys(campaign.step_outputs).length > 0 && (
