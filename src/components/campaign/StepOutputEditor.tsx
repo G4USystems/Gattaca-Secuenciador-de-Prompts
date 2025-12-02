@@ -466,14 +466,29 @@ export default function StepOutputEditor({
               </div>
             )
           ) : isEditing ? (
-            // Manual editing mode
-            <textarea
-              value={editedOutput}
-              onChange={(e) => handleTextChange(e.target.value)}
-              className="w-full h-full resize-none bg-white rounded-lg border border-blue-300 p-4 text-sm text-gray-900 font-mono leading-relaxed focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-              placeholder="Output del paso..."
-              autoFocus
-            />
+            // Manual editing mode - split view with editor and preview
+            <div className="h-full flex gap-4">
+              <div className="flex-1 flex flex-col min-w-0">
+                <div className="text-xs text-gray-500 mb-2 font-medium">Editor</div>
+                <textarea
+                  value={editedOutput}
+                  onChange={(e) => handleTextChange(e.target.value)}
+                  className="flex-1 w-full resize-none bg-white rounded-lg border border-blue-300 p-4 text-sm text-gray-900 font-mono leading-relaxed focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                  placeholder="Output del paso..."
+                  autoFocus
+                />
+              </div>
+              <div className="flex-1 flex flex-col min-w-0">
+                <div className="text-xs text-gray-500 mb-2 font-medium">Vista Previa</div>
+                <div className="flex-1 overflow-auto bg-white rounded-lg border border-gray-200 p-4">
+                  {editedOutput ? (
+                    <MarkdownRenderer content={editedOutput} />
+                  ) : (
+                    <span className="text-gray-400 italic">Escribe para ver la vista previa...</span>
+                  )}
+                </div>
+              </div>
+            </div>
           ) : (
             // Preview mode with markdown rendering
             <div
