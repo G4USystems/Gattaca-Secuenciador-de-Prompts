@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
-import { X, Save, RotateCcw, Eye, Edit2, AlertTriangle, FileText, Table, Download, Sparkles, Loader2, Check, XCircle } from 'lucide-react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { X, Save, RotateCcw, Eye, Edit2, AlertTriangle, Table, Download, Sparkles, Loader2, Check, XCircle, MousePointer2 } from 'lucide-react'
 import MarkdownRenderer, { extractTables, tablesToCSV } from '../common/MarkdownRenderer'
 
 interface StepOutputEditorProps {
@@ -24,52 +24,102 @@ interface StepOutputEditorProps {
   onClose: () => void
 }
 
-// Simple diff function to find changes between two texts
-function computeSimpleDiff(original: string, modified: string): { type: 'same' | 'added' | 'removed', text: string }[] {
-  const originalLines = original.split('\n')
-  const modifiedLines = modified.split('\n')
-  const result: { type: 'same' | 'added' | 'removed', text: string }[] = []
+// Find changed sections between original and modified text
+function findChangedSections(original: string, modified: string): { start: number; end: number; type: 'changed' }[] {
+  const changes: { start: number; end: number; type: 'changed' }[] = []
 
-  let i = 0, j = 0
+  // Simple approach: find sequences that differ
+  // Split into paragraphs/sections for better matching
+  const originalParts = original.split(/(\n\n+)/)
+  const modifiedParts = modified.split(/(\n\n+)/)
 
-  while (i < originalLines.length || j < modifiedLines.length) {
-    if (i >= originalLines.length) {
-      // Remaining lines in modified are additions
-      result.push({ type: 'added', text: modifiedLines[j] })
-      j++
-    } else if (j >= modifiedLines.length) {
-      // Remaining lines in original are removals
-      result.push({ type: 'removed', text: originalLines[i] })
-      i++
-    } else if (originalLines[i] === modifiedLines[j]) {
-      // Lines match
-      result.push({ type: 'same', text: originalLines[i] })
-      i++
-      j++
-    } else {
-      // Lines differ - check if it's a modification or insertion/deletion
-      const nextOriginalMatch = modifiedLines.indexOf(originalLines[i], j)
-      const nextModifiedMatch = originalLines.indexOf(modifiedLines[j], i)
+  let modifiedPos = 0
 
-      if (nextOriginalMatch === -1 && nextModifiedMatch === -1) {
-        // Both are different - treat as modification
-        result.push({ type: 'removed', text: originalLines[i] })
-        result.push({ type: 'added', text: modifiedLines[j] })
-        i++
-        j++
-      } else if (nextOriginalMatch === -1 || (nextModifiedMatch !== -1 && nextModifiedMatch < nextOriginalMatch)) {
-        // Original line appears later or not at all - current modified is added
-        result.push({ type: 'added', text: modifiedLines[j] })
-        j++
-      } else {
-        // Modified line appears later or not at all - current original is removed
-        result.push({ type: 'removed', text: originalLines[i] })
-        i++
-      }
+  for (let i = 0; i < modifiedParts.length; i++) {
+    const modPart = modifiedParts[i]
+    const origPart = originalParts[i] || ''
+
+    // If this part is different from original
+    if (modPart !== origPart && modPart.trim()) {
+      changes.push({
+        start: modifiedPos,
+        end: modifiedPos + modPart.length,
+        type: 'changed'
+      })
+    }
+
+    modifiedPos += modPart.length
+  }
+
+  // If modified is longer, mark the rest as changed
+  if (modifiedParts.length > originalParts.length) {
+    const extraStart = originalParts.join('').length
+    if (extraStart < modified.length) {
+      changes.push({
+        start: extraStart,
+        end: modified.length,
+        type: 'changed'
+      })
     }
   }
 
-  return result
+  return changes
+}
+
+// Component to render markdown with highlighted changes
+function MarkdownWithHighlights({
+  content,
+  highlights
+}: {
+  content: string
+  highlights: { start: number; end: number; type: 'changed' }[]
+}) {
+  if (highlights.length === 0) {
+    return <MarkdownRenderer content={content} />
+  }
+
+  // Build content with highlight markers
+  let markedContent = ''
+  let lastEnd = 0
+
+  // Sort highlights by start position
+  const sortedHighlights = [...highlights].sort((a, b) => a.start - b.start)
+
+  for (const hl of sortedHighlights) {
+    // Add unmarked content before this highlight
+    if (hl.start > lastEnd) {
+      markedContent += content.slice(lastEnd, hl.start)
+    }
+    // Add highlighted content with special markers
+    markedContent += `<mark class="ai-change">${content.slice(hl.start, hl.end)}</mark>`
+    lastEnd = hl.end
+  }
+
+  // Add remaining content
+  if (lastEnd < content.length) {
+    markedContent += content.slice(lastEnd)
+  }
+
+  return (
+    <div className="markdown-with-highlights">
+      <style jsx global>{`
+        .markdown-with-highlights mark.ai-change,
+        .markdown-with-highlights .ai-change {
+          background: linear-gradient(to bottom, #dcfce7 0%, #bbf7d0 100%);
+          border-left: 3px solid #22c55e;
+          padding: 2px 4px;
+          margin: -2px 0;
+          border-radius: 2px;
+          display: inline;
+        }
+        .markdown-with-highlights p mark.ai-change,
+        .markdown-with-highlights li mark.ai-change {
+          display: inline;
+        }
+      `}</style>
+      <MarkdownRenderer content={markedContent} />
+    </div>
+  )
 }
 
 export default function StepOutputEditor({
@@ -92,7 +142,11 @@ export default function StepOutputEditor({
   const [aiPrompt, setAiPrompt] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null)
-  const [showDiff, setShowDiff] = useState(true)
+
+  // Selection state
+  const [selectedText, setSelectedText] = useState<string | null>(null)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   // Store original output for revert functionality
   const originalOutput = currentOutput.original_output || currentOutput.output
@@ -100,11 +154,26 @@ export default function StepOutputEditor({
   // Extract tables from the content
   const tables = useMemo(() => extractTables(aiSuggestion || editedOutput), [aiSuggestion, editedOutput])
 
-  // Compute diff between current and suggestion
-  const diffResult = useMemo(() => {
-    if (!aiSuggestion) return null
-    return computeSimpleDiff(editedOutput, aiSuggestion)
+  // Find changed sections for highlighting
+  const changedSections = useMemo(() => {
+    if (!aiSuggestion) return []
+    return findChangedSections(editedOutput, aiSuggestion)
   }, [editedOutput, aiSuggestion])
+
+  // Handle text selection
+  const handleTextSelection = () => {
+    if (!selectionMode) return
+
+    const selection = window.getSelection()
+    if (selection && selection.toString().trim()) {
+      setSelectedText(selection.toString().trim())
+    }
+  }
+
+  const clearSelection = () => {
+    setSelectedText(null)
+    window.getSelection()?.removeAllRanges()
+  }
 
   const handleTextChange = (value: string) => {
     setEditedOutput(value)
@@ -127,10 +196,11 @@ export default function StepOutputEditor({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          currentOutput: aiSuggestion || editedOutput, // Use current suggestion if iterating
+          currentOutput: aiSuggestion || editedOutput,
           instruction: aiPrompt,
           stepName,
           campaignName,
+          selectedText: selectedText || undefined, // Send selection context if available
         }),
       })
 
@@ -138,7 +208,9 @@ export default function StepOutputEditor({
 
       if (data.success) {
         setAiSuggestion(data.suggestion)
-        setAiPrompt('') // Clear prompt for next iteration
+        setAiPrompt('')
+        setSelectedText(null) // Clear selection after generating
+        setSelectionMode(false)
       } else {
         throw new Error(data.error || 'Failed to generate suggestion')
       }
@@ -155,7 +227,7 @@ export default function StepOutputEditor({
       setEditedOutput(aiSuggestion)
       setHasChanges(aiSuggestion !== currentOutput.output)
       setAiSuggestion(null)
-      setIsEditing(true) // Allow further manual editing
+      setIsEditing(true)
     }
   }
 
@@ -283,9 +355,11 @@ export default function StepOutputEditor({
                     handleGenerateSuggestion()
                   }
                 }}
-                placeholder={aiSuggestion
-                  ? "Pide más cambios a la sugerencia..."
-                  : "Describe qué cambios deseas (ej: 'Agrega más detalle sobre competidores en LATAM')..."
+                placeholder={selectedText
+                  ? `Instrucción para la selección: "${selectedText.substring(0, 30)}${selectedText.length > 30 ? '...' : ''}"`
+                  : aiSuggestion
+                    ? "Pide más cambios a la sugerencia..."
+                    : "Describe qué cambios deseas (ej: 'Agrega más detalle sobre X')..."
                 }
                 className="flex-1 px-3 py-2 text-sm border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900 placeholder:text-gray-400"
                 disabled={isGenerating}
@@ -309,11 +383,46 @@ export default function StepOutputEditor({
               </button>
             </div>
           </div>
-          {aiSuggestion && (
-            <p className="text-xs text-purple-600 mt-2">
-              💡 Puedes editar la sugerencia manualmente, pedir más cambios al AI, o aplicar/descartar.
-            </p>
-          )}
+
+          {/* Selection indicator and mode toggle */}
+          <div className="flex items-center gap-4 mt-2">
+            {!aiSuggestion && !isEditing && (
+              <button
+                onClick={() => {
+                  setSelectionMode(!selectionMode)
+                  if (selectionMode) clearSelection()
+                }}
+                className={`inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors ${
+                  selectionMode
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                }`}
+              >
+                <MousePointer2 size={12} />
+                {selectionMode ? 'Selección activa' : 'Seleccionar texto'}
+              </button>
+            )}
+
+            {selectedText && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-purple-600 bg-purple-100 px-2 py-1 rounded max-w-xs truncate">
+                  📌 "{selectedText.substring(0, 50)}{selectedText.length > 50 ? '...' : ''}"
+                </span>
+                <button
+                  onClick={clearSelection}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {aiSuggestion && (
+              <p className="text-xs text-purple-600">
+                💡 Los cambios están resaltados en verde. Puedes editar, pedir más cambios, o aplicar/descartar.
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Toolbar */}
@@ -343,20 +452,6 @@ export default function StepOutputEditor({
                 </button>
               </>
             )}
-            {aiSuggestion && (
-              <>
-                <span className="text-gray-300">|</span>
-                <label className="inline-flex items-center gap-1 text-xs text-gray-600 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showDiff}
-                    onChange={(e) => setShowDiff(e.target.checked)}
-                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                  />
-                  Mostrar diferencias
-                </label>
-              </>
-            )}
           </div>
 
           <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -369,42 +464,22 @@ export default function StepOutputEditor({
         {/* Content Area */}
         <div className="flex-1 overflow-hidden p-4 min-h-0">
           {aiSuggestion ? (
-            // AI Suggestion Mode - show diff or editable suggestion
-            showDiff && diffResult ? (
-              <div className="h-full overflow-auto bg-white rounded-lg border border-purple-200 p-4">
-                <div className="text-xs text-gray-500 mb-3 flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded">+ Agregado</span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded">- Eliminado</span>
-                  <span className="text-gray-400 ml-2">Haz clic en "Editar Sugerencia" para modificar manualmente</span>
-                </div>
-                <div className="font-mono text-sm leading-relaxed">
-                  {diffResult.map((line, index) => (
-                    <div
-                      key={index}
-                      className={`py-0.5 px-2 -mx-2 ${
-                        line.type === 'added'
-                          ? 'bg-green-100 text-green-800 border-l-4 border-green-500'
-                          : line.type === 'removed'
-                          ? 'bg-red-100 text-red-800 border-l-4 border-red-500 line-through opacity-70'
-                          : 'text-gray-700'
-                      }`}
-                    >
-                      {line.type === 'added' && <span className="text-green-600 mr-2">+</span>}
-                      {line.type === 'removed' && <span className="text-red-600 mr-2">−</span>}
-                      {line.text || '\u00A0'}
-                    </div>
-                  ))}
-                </div>
+            // AI Suggestion Mode - show markdown with highlighted changes
+            <div
+              ref={contentRef}
+              className="h-full overflow-auto bg-white rounded-lg border border-purple-200 p-6"
+            >
+              <div className="text-xs text-gray-500 mb-4 flex items-center gap-2 pb-3 border-b border-gray-100">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded border-l-2 border-green-500">
+                  Cambios sugeridos
+                </span>
+                <span className="text-gray-400">El contenido modificado está resaltado en verde</span>
               </div>
-            ) : (
-              // Editable suggestion
-              <textarea
-                value={aiSuggestion}
-                onChange={(e) => handleSuggestionChange(e.target.value)}
-                className="w-full h-full resize-none bg-white rounded-lg border border-purple-300 p-4 text-sm text-gray-900 font-mono leading-relaxed focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:outline-none"
-                placeholder="Sugerencia del AI..."
+              <MarkdownWithHighlights
+                content={aiSuggestion}
+                highlights={changedSections}
               />
-            )
+            </div>
           ) : isEditing ? (
             // Manual editing mode
             <textarea
@@ -415,8 +490,21 @@ export default function StepOutputEditor({
               autoFocus
             />
           ) : (
-            // Preview mode with markdown rendering
-            <div className="h-full overflow-auto bg-white rounded-lg border border-gray-200 p-6">
+            // Preview mode with markdown rendering and optional selection
+            <div
+              ref={contentRef}
+              className={`h-full overflow-auto bg-white rounded-lg border p-6 ${
+                selectionMode
+                  ? 'border-purple-300 cursor-text selection:bg-purple-200'
+                  : 'border-gray-200'
+              }`}
+              onMouseUp={handleTextSelection}
+            >
+              {selectionMode && (
+                <div className="text-xs text-purple-600 mb-4 pb-3 border-b border-purple-100">
+                  👆 Selecciona el texto que quieres modificar, luego escribe la instrucción arriba
+                </div>
+              )}
               {editedOutput ? (
                 <MarkdownRenderer content={editedOutput} />
               ) : (
@@ -458,30 +546,25 @@ export default function StepOutputEditor({
                   <XCircle size={14} />
                   Descartar
                 </button>
-                {showDiff && (
-                  <button
-                    onClick={() => setShowDiff(false)}
-                    className="px-4 py-2 text-sm border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 inline-flex items-center gap-1.5"
-                  >
-                    <Edit2 size={14} />
-                    Editar Sugerencia
-                  </button>
-                )}
-                {!showDiff && (
-                  <button
-                    onClick={() => setShowDiff(true)}
-                    className="px-4 py-2 text-sm border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 inline-flex items-center gap-1.5"
-                  >
-                    <Eye size={14} />
-                    Ver Diferencias
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    // Switch to edit mode for the suggestion
+                    setIsEditing(true)
+                    setEditedOutput(aiSuggestion)
+                    setAiSuggestion(null)
+                    setHasChanges(true)
+                  }}
+                  className="px-4 py-2 text-sm border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 inline-flex items-center gap-1.5"
+                >
+                  <Edit2 size={14} />
+                  Editar Manualmente
+                </button>
                 <button
                   onClick={handleApplySuggestion}
                   className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 inline-flex items-center gap-1.5"
                 >
                   <Check size={14} />
-                  Aplicar Sugerencia
+                  Aplicar y Guardar
                 </button>
               </>
             ) : isEditing ? (
