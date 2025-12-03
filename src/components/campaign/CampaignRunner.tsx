@@ -125,6 +125,9 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
       const response = await fetch(`/api/projects/${projectId}`)
       const data = await response.json()
 
+      console.log('CampaignRunner - Project loaded:', data.project)
+      console.log('CampaignRunner - variable_definitions:', data.project?.variable_definitions)
+
       if (data.success && data.project) {
         setProject(data.project)
       }
@@ -1444,16 +1447,23 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
       })()}
 
       {/* Bulk Upload Modal */}
-      {showBulkUpload && (
-        <CampaignBulkUpload
-          projectId={projectId}
-          projectVariables={project?.variable_definitions || []}
-          onClose={() => setShowBulkUpload(false)}
-          onSuccess={() => {
-            loadCampaigns()
-          }}
-        />
-      )}
+      {showBulkUpload && (() => {
+        console.log('CampaignRunner - Passing to CampaignBulkUpload:', {
+          project,
+          variable_definitions: project?.variable_definitions,
+          passingValue: project?.variable_definitions || []
+        })
+        return (
+          <CampaignBulkUpload
+            projectId={projectId}
+            projectVariables={project?.variable_definitions || []}
+            onClose={() => setShowBulkUpload(false)}
+            onSuccess={() => {
+              loadCampaigns()
+            }}
+          />
+        )
+      })()}
 
       {/* Documentation Guide Modal */}
       {showDocsGuide && (
