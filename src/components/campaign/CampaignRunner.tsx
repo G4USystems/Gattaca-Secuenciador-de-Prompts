@@ -1120,22 +1120,26 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
       )}
 
       {/* Campaign Flow Editor */}
-      {editingFlowCampaignId && (
-        <CampaignFlowEditor
-          campaignId={editingFlowCampaignId}
-          initialFlowConfig={campaigns.find(c => c.id === editingFlowCampaignId)?.flow_config || project?.flow_config || null}
-          documents={documents}
-          projectVariables={project?.variable_definitions || []}
-          onClose={() => setEditingFlowCampaignId(null)}
-          onSave={(flowConfig) => {
-            // Update local campaign state
-            setCampaigns(prev => prev.map(c =>
-              c.id === editingFlowCampaignId ? { ...c, flow_config: flowConfig } : c
-            ))
-            setEditingFlowCampaignId(null)
-          }}
-        />
-      )}
+      {editingFlowCampaignId && (() => {
+        const editingCampaign = campaigns.find(c => c.id === editingFlowCampaignId)
+        return (
+          <CampaignFlowEditor
+            campaignId={editingFlowCampaignId}
+            initialFlowConfig={editingCampaign?.flow_config || project?.flow_config || null}
+            documents={documents}
+            projectVariables={project?.variable_definitions || []}
+            campaignVariables={editingCampaign?.custom_variables as Record<string, string> || {}}
+            onClose={() => setEditingFlowCampaignId(null)}
+            onSave={(flowConfig) => {
+              // Update local campaign state
+              setCampaigns(prev => prev.map(c =>
+                c.id === editingFlowCampaignId ? { ...c, flow_config: flowConfig } : c
+              ))
+              setEditingFlowCampaignId(null)
+            }}
+          />
+        )
+      })()}
 
       {/* Step Output Editor */}
       {editingStepOutput && (() => {
