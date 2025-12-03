@@ -47,18 +47,29 @@ export default function CampaignBulkUpload({
   const [editingCell, setEditingCell] = useState<{ row: number; col: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Debug: log what we receive
+  console.log('CampaignBulkUpload - projectVariables received:', projectVariables, 'type:', typeof projectVariables, 'isArray:', Array.isArray(projectVariables))
+
+  // Ensure projectVariables is a valid array
+  const safeProjectVariables = Array.isArray(projectVariables) ? projectVariables : []
+
   // All variables we need to map (reserved + project variables)
   const reservedFields = ['ecp_name', 'problem_core', 'country', 'industry']
 
-  // Get all unique variable names from project
-  const projectVarNames = projectVariables.map(v => v.name)
+  // Get all unique variable names from project variables
+  const projectVarNames = safeProjectVariables.map(v => v.name)
+
+  // Build list: start with reserved fields that aren't already in project vars,
+  // then add all project variables (which may include reserved names)
   const allVariables = [
-    ...reservedFields.filter(f => !projectVarNames.includes(f)), // Reserved fields not in project vars
-    ...projectVarNames // All project variables (includes reserved if defined there)
+    ...reservedFields.filter(f => !projectVarNames.includes(f)),
+    ...projectVarNames
   ]
 
   // Deduplicate and ensure ecp_name is first
   const uniqueVariables = Array.from(new Set(['ecp_name', ...allVariables]))
+
+  console.log('CampaignBulkUpload - uniqueVariables computed:', uniqueVariables)
 
   // Parse CSV text into raw data (preserving original headers)
   const parseCSV = useCallback((text: string) => {
@@ -272,7 +283,7 @@ export default function CampaignBulkUpload({
 
     // Validate required variables
     const validationErrors: string[] = []
-    const requiredVars = projectVariables.filter(v => v.required).map(v => v.name)
+    const requiredVars = safeProjectVariables.filter(v => v.required).map(v => v.name)
 
     campaigns.forEach((campaign, index) => {
       requiredVars.forEach(varName => {
@@ -323,13 +334,13 @@ export default function CampaignBulkUpload({
 
   // Download CSV template
   const downloadTemplate = () => {
-    const allHeaders = [...reservedFields, ...projectVariables.map(v => v.name).filter(v => !reservedFields.includes(v))]
+    const allHeaders = [...reservedFields, ...safeProjectVariables.map(v => v.name).filter(v => !reservedFields.includes(v))]
     const sampleRow = allHeaders.map(h => {
       if (h === 'ecp_name') return 'Nombre de Campaña 1'
       if (h === 'problem_core') return 'Descripción del problema'
       if (h === 'country') return 'España'
       if (h === 'industry') return 'Tecnología'
-      const varDef = projectVariables.find(v => v.name === h)
+      const varDef = safeProjectVariables.find(v => v.name === h)
       return varDef?.default_value || `Valor de ${h}`
     })
 
@@ -422,11 +433,19 @@ Campaña 2,Problema B,México,Retail`}
                   Selecciona qué columna del CSV corresponde a cada variable, o escribe un valor fijo.
                   Se detectaron {rawCsvData.headers.length} columnas y {rawCsvData.rows.length} filas.
                 </p>
+                {safeProjectVariables.length === 0 && (
+                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-700">
+                      ⚠️ No se encontraron variables personalizadas en el proyecto. Solo se muestran los campos básicos.
+                      Para añadir más variables, edita el proyecto en la pestaña de configuración.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-2 max-h-[400px] overflow-y-auto pr-2">
                 {uniqueVariables.map(varName => {
-                  const isRequired = varName === 'ecp_name' || projectVariables.find(v => v.name === varName)?.required
+                  const isRequired = varName === 'ecp_name' || safeProjectVariables.find(v => v.name === varName)?.required
                   const isMapped = !!columnMapping[varName]
                   const hasFixedValue = !!fixedValues[varName]
                   const isConfigured = isMapped || hasFixedValue
@@ -479,9 +498,9 @@ Campaña 2,Problema B,México,Retail`}
                         </div>
                         {isConfigured && <CheckCircle size={18} className="text-green-600 shrink-0" />}
                       </div>
-                      {projectVariables.find(v => v.name === varName)?.description && (
+                      {safeProjectVariables.find(v => v.name === varName)?.description && (
                         <p className="text-xs text-gray-500 mt-1 ml-[204px]">
-                          {projectVariables.find(v => v.name === varName)?.description}
+                          {safeProjectVariables.find(v => v.name === varName)?.description}
                         </p>
                       )}
                     </div>
@@ -529,7 +548,7 @@ Campaña 2,Problema B,México,Retail`}
                         {getMappedHeaders().map((header) => (
                           <th key={header} className="px-3 py-2 text-left text-xs font-semibold text-gray-600 min-w-[120px]">
                             <span className="font-mono">{header}</span>
-                            {(header === 'ecp_name' || projectVariables.find(v => v.name === header)?.required) && (
+                            {(header === 'ecp_name' || safeProjectVariables.find(v => v.name === header)?.required) && (
                               <span className="text-red-500 ml-1">*</span>
                             )}
                           </th>
@@ -557,7 +576,7 @@ Campaña 2,Problema B,México,Retail`}
                                 <div
                                   onClick={() => setEditingCell({ row: rowIndex, col: header })}
                                   className={`px-2 py-1 rounded cursor-pointer hover:bg-gray-100 truncate max-w-[200px] ${
-                                    !campaign[header] && (header === 'ecp_name' || projectVariables.find(v => v.name === header)?.required)
+                                    !campaign[header] && (header === 'ecp_name' || safeProjectVariables.find(v => v.name === header)?.required)
                                       ? 'bg-red-50 border border-red-200' : ''
                                   }`}
                                   title={campaign[header] || ''}
