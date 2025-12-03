@@ -9,12 +9,14 @@ interface CampaignRow {
   problem_core?: string
   country?: string
   industry?: string
+  prompt_research?: string
   [key: string]: string | undefined // Custom variables
 }
 
 interface BulkCreateRequest {
   projectId: string
   campaigns: CampaignRow[]
+  documentIds?: string[] // Document IDs to assign to all created campaigns
 }
 
 /**
@@ -23,7 +25,7 @@ interface BulkCreateRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: BulkCreateRequest = await request.json()
-    const { projectId, campaigns } = body
+    const { projectId, campaigns, documentIds = [] } = body
 
     if (!projectId) {
       return NextResponse.json(
@@ -96,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Reserved fields that go into dedicated columns
-    const reservedFields = ['ecp_name', 'problem_core', 'country', 'industry']
+    const reservedFields = ['ecp_name', 'problem_core', 'country', 'industry', 'prompt_research']
 
     // Get project variable definitions
     const projectVariables = project.variable_definitions as Array<{
@@ -126,6 +128,7 @@ export async function POST(request: NextRequest) {
         problem_core: campaign.problem_core?.trim() || '',
         country: campaign.country?.trim() || '',
         industry: campaign.industry?.trim() || '',
+        research_prompt: campaign.prompt_research?.trim() || null,
         status: 'draft',
         custom_variables: customVariables,
         step_outputs: {},
@@ -157,11 +160,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Assign selected documents to created campaigns
+    // Since the schema has campaign_id as a single FK, we distribute documents across campaigns
+    // Each document gets assigned to one campaign (round-robin distribution)
+    let documentsAssigned = 0
+    if (documentIds.length > 0 && data && data.length > 0) {
+      // Distribute documents across campaigns (round-robin)
+      for (let i = 0; i < documentIds.length; i++) {
+        const campaignIndex = i % data.length
+        const campaignId = data[campaignIndex].id
+
+        const { error: docError } = await supabase
+          .from('knowledge_base_docs')
+          .update({ campaign_id: campaignId })
+          .eq('id', documentIds[i])
+
+        if (!docError) {
+          documentsAssigned++
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       campaigns: data,
       count: data.length,
-      message: `Successfully created ${data.length} campaigns`,
+      documentsAssigned,
+      message: `Successfully created ${data.length} campaigns${documentsAssigned > 0 ? ` (${documentsAssigned} documents assigned)` : ''}`,
     })
   } catch (error) {
     console.error('Bulk create campaign error:', error)

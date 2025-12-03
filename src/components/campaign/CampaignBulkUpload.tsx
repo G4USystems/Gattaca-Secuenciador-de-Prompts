@@ -1,14 +1,22 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { Upload, FileSpreadsheet, X, AlertCircle, CheckCircle, Download, Trash2, Edit2 } from 'lucide-react'
+import { Upload, FileSpreadsheet, X, AlertCircle, CheckCircle, Download, Trash2, Edit2, FileText, Check } from 'lucide-react'
 
 interface CampaignRow {
   ecp_name: string
   problem_core?: string
   country?: string
   industry?: string
+  prompt_research?: string
   [key: string]: string | undefined
+}
+
+interface Document {
+  id: string
+  filename: string
+  category: string
+  campaign_id?: string | null
 }
 
 interface CampaignBulkUploadProps {
@@ -19,6 +27,7 @@ interface CampaignBulkUploadProps {
     required: boolean
     description?: string
   }>
+  documents?: Document[]
   onClose: () => void
   onSuccess: () => void
 }
@@ -26,6 +35,7 @@ interface CampaignBulkUploadProps {
 export default function CampaignBulkUpload({
   projectId,
   projectVariables = [],
+  documents = [],
   onClose,
   onSuccess
 }: CampaignBulkUploadProps) {
@@ -35,7 +45,33 @@ export default function CampaignBulkUpload({
   const [creating, setCreating] = useState(false)
   const [csvText, setCsvText] = useState('')
   const [editingCell, setEditingCell] = useState<{ row: number; col: string } | null>(null)
+  const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Filter to only show unassigned documents (those without campaign_id)
+  const availableDocuments = documents.filter(doc => !doc.campaign_id)
+
+  // Toggle document selection
+  const toggleDocument = (docId: string) => {
+    setSelectedDocuments(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(docId)) {
+        newSet.delete(docId)
+      } else {
+        newSet.add(docId)
+      }
+      return newSet
+    })
+  }
+
+  // Select/deselect all documents
+  const toggleAllDocuments = () => {
+    if (selectedDocuments.size === availableDocuments.length) {
+      setSelectedDocuments(new Set())
+    } else {
+      setSelectedDocuments(new Set(availableDocuments.map(d => d.id)))
+    }
+  }
 
   // Parse CSV text into campaigns array
   const parseCSV = useCallback((text: string) => {
@@ -225,6 +261,7 @@ export default function CampaignBulkUpload({
         body: JSON.stringify({
           projectId,
           campaigns,
+          documentIds: Array.from(selectedDocuments),
         }),
       })
 
@@ -247,8 +284,8 @@ export default function CampaignBulkUpload({
 
   // Download CSV template
   const downloadTemplate = () => {
-    // Build header from reserved fields + project variables
-    const reservedHeaders = ['ecp_name', 'problem_core', 'country', 'industry']
+    // Build header from reserved fields + project variables + prompt_research
+    const reservedHeaders = ['ecp_name', 'problem_core', 'country', 'industry', 'prompt_research']
     const variableHeaders = projectVariables.map(v => v.name)
     const allHeaders = [...reservedHeaders, ...variableHeaders.filter(v => !reservedHeaders.includes(v))]
 
@@ -258,6 +295,7 @@ export default function CampaignBulkUpload({
       if (h === 'problem_core') return 'Descripción del problema'
       if (h === 'country') return 'España'
       if (h === 'industry') return 'Tecnología'
+      if (h === 'prompt_research') return 'Prompt para deep research de esta campaña...'
       const varDef = projectVariables.find(v => v.name === h)
       return varDef?.default_value || `Valor de ${h}`
     })
@@ -358,6 +396,7 @@ Campaña 2,Problema B,México,Retail,valor3,valor4`}
                   <li>• La primera fila debe ser los nombres de las columnas (headers)</li>
                   <li>• Los headers pueden tener formato <code className="bg-blue-100 px-1 rounded">{'{{variable}}'}</code> o solo <code className="bg-blue-100 px-1 rounded">variable</code></li>
                   <li>• <code className="bg-blue-100 px-1 rounded">ecp_name</code> es obligatorio - es el nombre de cada campaña</li>
+                  <li>• <code className="bg-blue-100 px-1 rounded">prompt_research</code> es opcional - prompt de deep research para la campaña</li>
                   <li>• Soporta separadores: tabulador, coma (,) o punto y coma (;)</li>
                   <li>• Solo se importarán las variables definidas en el proyecto</li>
                 </ul>
@@ -400,12 +439,65 @@ Campaña 2,Problema B,México,Retail,valor3,valor4`}
                     setCampaigns([])
                     setHeaders([])
                     setCsvText('')
+                    setSelectedDocuments(new Set())
                   }}
                   className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg"
                 >
                   Cargar otro archivo
                 </button>
               </div>
+
+              {/* Document Assignment Section */}
+              {availableDocuments.length > 0 && (
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <FileText size={18} className="text-blue-600" />
+                      <h4 className="font-medium text-blue-800">
+                        Asignar documentos a todas las campañas
+                      </h4>
+                    </div>
+                    <button
+                      onClick={toggleAllDocuments}
+                      className="text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      {selectedDocuments.size === availableDocuments.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                    </button>
+                  </div>
+                  <p className="text-sm text-blue-700 mb-3">
+                    Los documentos seleccionados se asignarán a cada campaña creada:
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
+                    {availableDocuments.map(doc => (
+                      <label
+                        key={doc.id}
+                        className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
+                          selectedDocuments.has(doc.id)
+                            ? 'bg-blue-100 border-blue-300 border'
+                            : 'bg-white border border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedDocuments.has(doc.id)}
+                          onChange={() => toggleDocument(doc.id)}
+                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm text-gray-900 truncate block">{doc.filename}</span>
+                          <span className="text-xs text-gray-500">{doc.category}</span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedDocuments.size > 0 && (
+                    <p className="text-sm text-blue-600 mt-2 flex items-center gap-1">
+                      <Check size={14} />
+                      {selectedDocuments.size} documento(s) seleccionado(s)
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
