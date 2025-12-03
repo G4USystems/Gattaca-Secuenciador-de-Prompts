@@ -1305,18 +1305,37 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
                                     </div>
                                     <div className="flex items-center gap-2">
                                       {stepOutput?.output && (
-                                        <button
-                                          onClick={() => setEditingStepOutput({
-                                            campaignId: campaign.id,
-                                            campaignName: campaign.ecp_name,
-                                            stepId: step.id,
-                                            stepName: step.name,
-                                            stepOrder: step.order,
-                                          })}
-                                          className="px-2.5 py-1 text-xs bg-white border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
-                                        >
-                                          Ver resultado
-                                        </button>
+                                        <>
+                                          <button
+                                            onClick={() => {
+                                              // Download step output
+                                              const { extension, mimeType } = getFileExtensionAndMimeType(step.output_format)
+                                              const blob = new Blob([stepOutput.output], { type: mimeType })
+                                              const url = URL.createObjectURL(blob)
+                                              const a = document.createElement('a')
+                                              a.href = url
+                                              a.download = `${campaign.ecp_name.replace(/\s+/g, '_')}_${step.name.replace(/\s+/g, '_')}.${extension}`
+                                              a.click()
+                                              URL.revokeObjectURL(url)
+                                            }}
+                                            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                                            title="Descargar resultado"
+                                          >
+                                            <Download size={14} />
+                                          </button>
+                                          <button
+                                            onClick={() => setEditingStepOutput({
+                                              campaignId: campaign.id,
+                                              campaignName: campaign.ecp_name,
+                                              stepId: step.id,
+                                              stepName: step.name,
+                                              stepOrder: step.order,
+                                            })}
+                                            className="px-2.5 py-1 text-xs bg-white border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
+                                          >
+                                            Ver resultado
+                                          </button>
+                                        </>
                                       )}
                                       <button
                                         onClick={() => handleRunStep(campaign.id, step.id, step.name)}
