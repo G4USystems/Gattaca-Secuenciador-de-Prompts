@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Play, CheckCircle, Clock, AlertCircle, Download, Plus, X, Edit2, ChevronDown, ChevronRight, Settings, Trash2, Check, Eye, FileSpreadsheet, Search, Filter, Variable, FileText, Info } from 'lucide-react'
+import { Play, CheckCircle, Clock, AlertCircle, Download, Plus, X, Edit2, ChevronDown, ChevronRight, Settings, Trash2, Check, Eye, FileSpreadsheet, Search, Filter, Variable, FileText, Info, Copy, BookOpen } from 'lucide-react'
 import CampaignFlowEditor from './CampaignFlowEditor'
 import StepOutputEditor from './StepOutputEditor'
 import CampaignBulkUpload from './CampaignBulkUpload'
@@ -27,6 +27,12 @@ interface Campaign {
   flow_config?: FlowConfig | null
 }
 
+interface ResearchPrompt {
+  id: string
+  name: string
+  content: string
+}
+
 interface Project {
   id: string
   name: string
@@ -38,6 +44,7 @@ interface Project {
   }>
   flow_config?: FlowConfig
   campaign_docs_guide?: string
+  deep_research_prompts?: ResearchPrompt[]
 }
 
 interface CampaignDocument {
@@ -77,8 +84,10 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [expandedVariables, setExpandedVariables] = useState<Set<string>>(new Set())
   const [expandedDocs, setExpandedDocs] = useState<Set<string>>(new Set())
+  const [expandedResearchPrompts, setExpandedResearchPrompts] = useState<Set<string>>(new Set())
   const [campaignDocs, setCampaignDocs] = useState<Record<string, CampaignDocument[]>>({})
   const [showDocsGuide, setShowDocsGuide] = useState<string | null>(null)
+  const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null)
 
   // Form state - only custom variables
   const [customVariables, setCustomVariables] = useState<Array<{ key: string; value: string }>>([])
@@ -542,6 +551,41 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
       } catch (error) {
         console.error('Error loading campaign documents:', error)
       }
+    }
+  }
+
+  const toggleResearchPromptsExpanded = (campaignId: string) => {
+    setExpandedResearchPrompts(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(campaignId)) {
+        newSet.delete(campaignId)
+      } else {
+        newSet.add(campaignId)
+      }
+      return newSet
+    })
+  }
+
+  // Replace {{variables}} in a prompt with actual campaign values
+  const getPromptWithRealValues = (prompt: string, campaignVariables: Record<string, string>): string => {
+    let result = prompt
+    Object.entries(campaignVariables).forEach(([key, value]) => {
+      const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g')
+      result = result.replace(regex, value || `[${key}: sin valor]`)
+    })
+    return result
+  }
+
+  // Copy prompt with variables replaced to clipboard
+  const copyPromptToClipboard = async (promptId: string, promptContent: string, campaignVariables: Record<string, string>) => {
+    const processedPrompt = getPromptWithRealValues(promptContent, campaignVariables)
+    try {
+      await navigator.clipboard.writeText(processedPrompt)
+      setCopiedPromptId(promptId)
+      setTimeout(() => setCopiedPromptId(null), 2000)
+    } catch (error) {
+      console.error('Error copying to clipboard:', error)
+      alert('No se pudo copiar al portapapeles')
     }
   }
 
@@ -1063,6 +1107,76 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                     </div>
                   )}
                 </div>
+
+                {/* Research Prompts Section - Collapsible */}
+                {project?.deep_research_prompts && project.deep_research_prompts.length > 0 && (
+                  <div className="border-b border-gray-100">
+                    <button
+                      onClick={() => toggleResearchPromptsExpanded(campaign.id)}
+                      className="w-full px-4 py-2 flex items-center justify-between text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      <span className="inline-flex items-center gap-1.5">
+                        <BookOpen size={14} />
+                        Prompts de Research
+                        <span className="bg-purple-100 text-purple-600 px-1.5 rounded-full">
+                          {project.deep_research_prompts.length}
+                        </span>
+                      </span>
+                      <ChevronDown
+                        size={14}
+                        className={`transition-transform ${expandedResearchPrompts.has(campaign.id) ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                    {expandedResearchPrompts.has(campaign.id) && (
+                      <div className="px-4 pb-3 space-y-3">
+                        <p className="text-xs text-gray-500 mb-2">
+                          Copia estos prompts con las variables de esta campaña ya reemplazadas:
+                        </p>
+                        {project.deep_research_prompts.map((prompt) => {
+                          const campaignVars = campaign.custom_variables as Record<string, string> || {}
+                          const processedPrompt = getPromptWithRealValues(prompt.content, campaignVars)
+                          const isCopied = copiedPromptId === `${campaign.id}-${prompt.id}`
+
+                          return (
+                            <div key={prompt.id} className="bg-purple-50 border border-purple-100 rounded-lg p-3">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <h4 className="text-xs font-semibold text-purple-800">
+                                  {prompt.name}
+                                </h4>
+                                <button
+                                  onClick={() => copyPromptToClipboard(`${campaign.id}-${prompt.id}`, prompt.content, campaignVars)}
+                                  className={`shrink-0 px-2 py-1 text-xs rounded inline-flex items-center gap-1 transition-colors ${
+                                    isCopied
+                                      ? 'bg-green-600 text-white'
+                                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                                  }`}
+                                  title="Copiar prompt con variables reemplazadas"
+                                >
+                                  {isCopied ? (
+                                    <>
+                                      <Check size={12} />
+                                      Copiado
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy size={12} />
+                                      Copiar
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                              <div className="text-xs text-purple-700 whitespace-pre-wrap max-h-32 overflow-y-auto bg-white/50 rounded p-2 border border-purple-100">
+                                {processedPrompt.length > 300
+                                  ? `${processedPrompt.substring(0, 300)}...`
+                                  : processedPrompt}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Steps Section - Collapsible */}
                 {(campaign.flow_config?.steps || project?.flow_config?.steps) && (

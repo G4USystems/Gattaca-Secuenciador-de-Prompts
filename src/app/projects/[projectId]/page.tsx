@@ -13,6 +13,7 @@ import TokenMonitor from '@/components/TokenMonitor'
 import FlowSetup from '@/components/flow/FlowSetup'
 import CampaignRunner from '@/components/campaign/CampaignRunner'
 import ProjectVariables from '@/components/project/ProjectVariables'
+import ResearchPromptsEditor from '@/components/project/ResearchPromptsEditor'
 
 type TabType = 'documents' | 'flow' | 'config' | 'campaigns' | 'context' | 'variables'
 
@@ -231,14 +232,23 @@ export default function ProjectPage({
               />
             )}
             {activeTab === 'variables' && (
-              <ProjectVariables
-                projectId={params.projectId}
-                initialVariables={project.variable_definitions || []}
-                onUpdate={() => {
-                  // Reload project to get updated variables
-                  window.location.reload()
-                }}
-              />
+              <div className="space-y-6">
+                <ProjectVariables
+                  projectId={params.projectId}
+                  initialVariables={project.variable_definitions || []}
+                  onUpdate={() => {
+                    // Reload project to get updated variables
+                    window.location.reload()
+                  }}
+                />
+                <ResearchPromptsEditor
+                  projectId={params.projectId}
+                  initialPrompts={project.deep_research_prompts || []}
+                  onUpdate={() => {
+                    window.location.reload()
+                  }}
+                />
+              </div>
             )}
             {activeTab === 'flow' && (
               <FlowSetup projectId={params.projectId} documents={documents} />
