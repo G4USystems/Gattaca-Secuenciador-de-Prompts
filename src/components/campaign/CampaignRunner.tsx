@@ -25,6 +25,14 @@ interface Campaign {
   created_at: string
   custom_variables?: Record<string, string> | any
   flow_config?: FlowConfig | null
+  research_prompt?: string | null
+}
+
+interface ProjectDocument {
+  id: string
+  filename: string
+  category: string
+  campaign_id?: string | null
 }
 
 interface ResearchPrompt {
@@ -66,7 +74,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set())
   const [runningStep, setRunningStep] = useState<{ campaignId: string; stepId: string } | null>(null)
   const [editingFlowCampaignId, setEditingFlowCampaignId] = useState<string | null>(null)
-  const [documents, setDocuments] = useState<any[]>([])
+  const [documents, setDocuments] = useState<ProjectDocument[]>([])
   const [editingCampaignName, setEditingCampaignName] = useState<string | null>(null)
   const [editingNameValue, setEditingNameValue] = useState('')
   const [editingStepOutput, setEditingStepOutput] = useState<{
@@ -1123,7 +1131,42 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                   </div>
                 )}
 
-                {/* Research Prompts Section */}
+                {/* Campaign Research Prompt (from CSV) */}
+                {campaign.research_prompt && (
+                  <div className="mb-4 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <h4 className="font-medium text-indigo-800 inline-flex items-center gap-2">
+                        <BookOpen size={18} />
+                        Prompt de Research de esta Campaña
+                      </h4>
+                      <button
+                        onClick={() => copyPromptToClipboard(`research-${campaign.id}`, campaign.research_prompt || '', {})}
+                        className={`shrink-0 px-3 py-1.5 text-sm rounded-lg inline-flex items-center gap-1 transition-colors ${
+                          copiedPromptId === `research-${campaign.id}`
+                            ? 'bg-green-600 text-white'
+                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                        }`}
+                      >
+                        {copiedPromptId === `research-${campaign.id}` ? (
+                          <>
+                            <Check size={14} />
+                            Copiado
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={14} />
+                            Copiar
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <div className="text-sm text-indigo-700 whitespace-pre-wrap max-h-40 overflow-y-auto bg-white/50 rounded-lg p-3 border border-indigo-100">
+                      {campaign.research_prompt}
+                    </div>
+                  </div>
+                )}
+
+                {/* Research Prompts Section (Project-level templates) */}
                 {project?.deep_research_prompts && project.deep_research_prompts.length > 0 && (
                   <div className="mb-4 border border-purple-200 rounded-lg">
                     <button
@@ -1132,7 +1175,7 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                     >
                       <span className="inline-flex items-center gap-2">
                         <BookOpen size={18} />
-                        Prompts de Research ({project.deep_research_prompts.length})
+                        Plantillas de Research ({project.deep_research_prompts.length})
                       </span>
                       <ChevronDown
                         size={18}
@@ -1356,6 +1399,12 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
         <CampaignBulkUpload
           projectId={projectId}
           projectVariables={project?.variable_definitions || []}
+          documents={documents.map(d => ({
+            id: d.id,
+            filename: d.filename,
+            category: d.category,
+            campaign_id: d.campaign_id,
+          }))}
           onClose={() => setShowBulkUpload(false)}
           onSuccess={() => {
             loadCampaigns()
