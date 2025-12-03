@@ -44,6 +44,8 @@ export interface Database {
           step_4_guidance: string | null
           flow_config: Json | null
           variable_definitions: Json
+          deep_research_prompts: Json
+          campaign_docs_guide: string | null
         }
         Insert: {
           id?: string
@@ -64,6 +66,8 @@ export interface Database {
           step_4_guidance?: string | null
           flow_config?: Json | null
           variable_definitions?: Json
+          deep_research_prompts?: Json
+          campaign_docs_guide?: string | null
         }
         Update: {
           id?: string
@@ -84,6 +88,8 @@ export interface Database {
           step_4_guidance?: string | null
           flow_config?: Json | null
           variable_definitions?: Json
+          deep_research_prompts?: Json
+          campaign_docs_guide?: string | null
         }
       }
       knowledge_base_docs: {

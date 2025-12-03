@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Play, CheckCircle, Clock, AlertCircle, Download, Plus, X, Edit2, ChevronDown, ChevronRight, Settings, Trash2, Check, Eye, FileSpreadsheet } from 'lucide-react'
+import { Play, CheckCircle, Clock, AlertCircle, Download, Plus, X, Edit2, ChevronDown, ChevronRight, Settings, Trash2, Check, Eye, FileSpreadsheet, Search, Filter, Variable, FileText, Info, Copy, BookOpen } from 'lucide-react'
 import CampaignFlowEditor from './CampaignFlowEditor'
 import StepOutputEditor from './StepOutputEditor'
 import CampaignBulkUpload from './CampaignBulkUpload'
@@ -27,6 +27,12 @@ interface Campaign {
   flow_config?: FlowConfig | null
 }
 
+interface ResearchPrompt {
+  id: string
+  name: string
+  content: string
+}
+
 interface Project {
   id: string
   name: string
@@ -37,6 +43,16 @@ interface Project {
     description?: string
   }>
   flow_config?: FlowConfig
+  campaign_docs_guide?: string
+  deep_research_prompts?: ResearchPrompt[]
+}
+
+interface CampaignDocument {
+  id: string
+  filename: string
+  category: string
+  token_count: number | null
+  created_at: string
 }
 
 export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
@@ -62,6 +78,16 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
   } | null>(null)
   const [downloadFormatMenu, setDownloadFormatMenu] = useState<string | null>(null)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
+
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [expandedVariables, setExpandedVariables] = useState<Set<string>>(new Set())
+  const [expandedDocs, setExpandedDocs] = useState<Set<string>>(new Set())
+  const [expandedResearchPrompts, setExpandedResearchPrompts] = useState<Set<string>>(new Set())
+  const [campaignDocs, setCampaignDocs] = useState<Record<string, CampaignDocument[]>>({})
+  const [showDocsGuide, setShowDocsGuide] = useState<string | null>(null)
+  const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null)
 
   // Form state - only custom variables
   const [customVariables, setCustomVariables] = useState<Array<{ key: string; value: string }>>([])
@@ -486,6 +512,99 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
     return runningStep?.campaignId === campaignId && runningStep?.stepId === stepId
   }
 
+  const toggleVariablesExpanded = (campaignId: string) => {
+    setExpandedVariables(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(campaignId)) {
+        newSet.delete(campaignId)
+      } else {
+        newSet.add(campaignId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleDocsExpanded = async (campaignId: string) => {
+    const isExpanding = !expandedDocs.has(campaignId)
+
+    setExpandedDocs(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(campaignId)) {
+        newSet.delete(campaignId)
+      } else {
+        newSet.add(campaignId)
+      }
+      return newSet
+    })
+
+    // Load campaign docs if expanding and not already loaded
+    if (isExpanding && !campaignDocs[campaignId]) {
+      try {
+        const response = await fetch(`/api/documents?projectId=${projectId}&campaignId=${campaignId}`)
+        const data = await response.json()
+        if (data.success) {
+          setCampaignDocs(prev => ({
+            ...prev,
+            [campaignId]: data.documents || []
+          }))
+        }
+      } catch (error) {
+        console.error('Error loading campaign documents:', error)
+      }
+    }
+  }
+
+  const toggleResearchPromptsExpanded = (campaignId: string) => {
+    setExpandedResearchPrompts(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(campaignId)) {
+        newSet.delete(campaignId)
+      } else {
+        newSet.add(campaignId)
+      }
+      return newSet
+    })
+  }
+
+  // Replace {{variables}} in a prompt with actual campaign values
+  const getPromptWithRealValues = (prompt: string, campaignVariables: Record<string, string>): string => {
+    let result = prompt
+    Object.entries(campaignVariables).forEach(([key, value]) => {
+      const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g')
+      result = result.replace(regex, value || `[${key}: sin valor]`)
+    })
+    return result
+  }
+
+  // Copy prompt with variables replaced to clipboard
+  const copyPromptToClipboard = async (promptId: string, promptContent: string, campaignVariables: Record<string, string>) => {
+    const processedPrompt = getPromptWithRealValues(promptContent, campaignVariables)
+    try {
+      await navigator.clipboard.writeText(processedPrompt)
+      setCopiedPromptId(promptId)
+      setTimeout(() => setCopiedPromptId(null), 2000)
+    } catch (error) {
+      console.error('Error copying to clipboard:', error)
+      alert('No se pudo copiar al portapapeles')
+    }
+  }
+
+  // Filter campaigns based on search and status
+  const filteredCampaigns = campaigns.filter(campaign => {
+    const matchesSearch = searchQuery === '' ||
+      campaign.ecp_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      campaign.problem_core?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      campaign.country?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      campaign.industry?.toLowerCase().includes(searchQuery.toLowerCase())
+
+    const matchesStatus = statusFilter === 'all' || campaign.status === statusFilter
+
+    return matchesSearch && matchesStatus
+  })
+
+  // Get unique statuses for filter
+  const uniqueStatuses = Array.from(new Set(campaigns.map(c => c.status)))
+
   const getFileExtensionAndMimeType = (format?: string): { extension: string; mimeType: string } => {
     switch (format) {
       case 'markdown':
@@ -755,200 +874,371 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
         </div>
       )}
 
+      {/* Filters */}
+      {campaigns.length > 0 && (
+        <div className="mb-4 flex flex-col sm:flex-row gap-3">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar campañas..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-gray-400"
+            />
+          </div>
+          {/* Status Filter */}
+          <div className="flex items-center gap-2">
+            <Filter size={18} className="text-gray-400" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">Todos los estados</option>
+              <option value="draft">Ready to run</option>
+              <option value="running">Running</option>
+              <option value="completed">Completed</option>
+              <option value="error">Error</option>
+            </select>
+          </div>
+          {/* Results count */}
+          <div className="text-sm text-gray-500 self-center">
+            {filteredCampaigns.length} de {campaigns.length} campañas
+          </div>
+        </div>
+      )}
+
       {/* Campaigns List */}
       {campaigns.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
           <p>No hay campañas todavía</p>
           <p className="text-sm mt-2">Crea una campaña para empezar</p>
         </div>
+      ) : filteredCampaigns.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          <p>No se encontraron campañas</p>
+          <p className="text-sm mt-2">Intenta con otros filtros</p>
+        </div>
       ) : (
-        <div className="space-y-4">
-          {campaigns.map((campaign) => (
-            <div
-              key={campaign.id}
-              className="bg-white border border-gray-200 rounded-lg p-4"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  {editingCampaignName === campaign.id ? (
-                    <div className="flex items-center gap-2 mb-1">
-                      <input
-                        type="text"
-                        value={editingNameValue}
-                        onChange={(e) => setEditingNameValue(e.target.value)}
-                        className="flex-1 text-lg font-semibold text-gray-900 border-2 border-blue-500 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleSaveCampaignName(campaign.id)
-                          if (e.key === 'Escape') handleCancelEditCampaignName()
-                        }}
-                      />
-                      <button
-                        onClick={() => handleSaveCampaignName(campaign.id)}
-                        className="p-1.5 bg-green-600 text-white rounded hover:bg-green-700"
-                      >
-                        <Check size={16} />
-                      </button>
-                      <button
-                        onClick={handleCancelEditCampaignName}
-                        className="p-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-lg text-gray-900">{campaign.ecp_name}</h3>
-                      {campaign.status === 'draft' && (
-                        <button
-                          onClick={() => handleEditCampaignName(campaign.id, campaign.ecp_name)}
-                          className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  <p className="text-sm text-gray-600 mt-1">
-                    {campaign.problem_core} • {campaign.country} • {campaign.industry}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {running === campaign.id ? (
-                    <>
-                      <Clock size={20} className="text-blue-600 animate-spin" />
-                      <span className="text-sm font-medium text-blue-600">
-                        Running...
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      {getStatusIcon(campaign.status)}
-                      <span className="text-sm font-medium text-gray-900">
-                        {getStatusLabel(campaign.status)}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredCampaigns.map((campaign) => {
+            const varsCount = campaign.custom_variables ? Object.keys(campaign.custom_variables).length : 0
+            const stepsCount = campaign.step_outputs ? Object.keys(campaign.step_outputs).length : 0
+            const totalSteps = (campaign.flow_config?.steps || project?.flow_config?.steps || []).length
 
-              {/* Campaign Variables */}
-              {campaign.custom_variables && Object.keys(campaign.custom_variables).length > 0 && (
-                <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-gray-700 uppercase">Variables</span>
-                    <button
-                      onClick={() => handleEditCampaign(campaign)}
-                      className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100 inline-flex items-center gap-1"
-                      title="Edit campaign variables"
-                    >
-                      <Edit2 size={12} />
-                      Edit
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    {Object.entries(campaign.custom_variables as Record<string, string>).map(([key, value]) => (
-                      <div key={key} className="flex items-start gap-2">
-                        <code className="text-xs font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded shrink-0">
-                          {'{{'}{key}{'}}'}
-                        </code>
-                        <span className="text-gray-700 truncate" title={value}>
-                          {value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Step outputs summary */}
-              {campaign.step_outputs && Object.keys(campaign.step_outputs).length > 0 && (
-                <div className="mb-3 text-sm text-gray-600">
-                  <p>
-                    Steps completed: {Object.keys(campaign.step_outputs).length}
-                  </p>
-                </div>
-              )}
-
-              {/* Individual Steps Section */}
-              {(campaign.flow_config?.steps || project?.flow_config?.steps) && (
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <button
-                      onClick={() => toggleCampaignExpanded(campaign.id)}
-                      className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-                    >
-                      {expandedCampaigns.has(campaign.id) ? (
-                        <ChevronDown size={16} />
+            return (
+              <div
+                key={campaign.id}
+                className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+              >
+                {/* Card Header */}
+                <div className="p-4 border-b border-gray-100">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      {editingCampaignName === campaign.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={editingNameValue}
+                            onChange={(e) => setEditingNameValue(e.target.value)}
+                            className="flex-1 text-sm font-semibold text-gray-900 border-2 border-blue-500 rounded px-2 py-1 focus:outline-none"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveCampaignName(campaign.id)
+                              if (e.key === 'Escape') handleCancelEditCampaignName()
+                            }}
+                          />
+                          <button
+                            onClick={() => handleSaveCampaignName(campaign.id)}
+                            className="p-1 bg-green-600 text-white rounded hover:bg-green-700"
+                          >
+                            <Check size={14} />
+                          </button>
+                          <button
+                            onClick={handleCancelEditCampaignName}
+                            className="p-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
                       ) : (
-                        <ChevronRight size={16} />
+                        <div className="flex items-center gap-1">
+                          <h3 className="font-semibold text-gray-900 truncate" title={campaign.ecp_name}>
+                            {campaign.ecp_name}
+                          </h3>
+                          {campaign.status === 'draft' && (
+                            <button
+                              onClick={() => handleEditCampaignName(campaign.id, campaign.ecp_name)}
+                              className="p-0.5 text-gray-400 hover:text-gray-600 rounded shrink-0"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                          )}
+                        </div>
                       )}
-                      Individual Steps ({(campaign.flow_config?.steps || project?.flow_config?.steps)?.length})
-                    </button>
-                    <button
-                      onClick={() => setEditingFlowCampaignId(campaign.id)}
-                      className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 inline-flex items-center gap-1"
-                    >
-                      <Settings size={12} />
-                      Edit Flow
-                    </button>
+                    </div>
+                    {/* Status Badge */}
+                    <div className={`shrink-0 px-2 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1 ${
+                      running === campaign.id
+                        ? 'bg-blue-100 text-blue-700'
+                        : campaign.status === 'completed'
+                        ? 'bg-green-100 text-green-700'
+                        : campaign.status === 'error'
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {running === campaign.id ? (
+                        <Clock size={12} className="animate-spin" />
+                      ) : (
+                        getStatusIcon(campaign.status)
+                      )}
+                      <span className="hidden sm:inline">
+                        {running === campaign.id ? 'Running' : getStatusLabel(campaign.status)}
+                      </span>
+                    </div>
                   </div>
+                  {/* Meta info */}
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                    {campaign.country && <span>{campaign.country}</span>}
+                    {campaign.industry && <span>• {campaign.industry}</span>}
+                    {stepsCount > 0 && (
+                      <span className="text-green-600">• {stepsCount}/{totalSteps} steps</span>
+                    )}
+                  </div>
+                </div>
 
-                  {expandedCampaigns.has(campaign.id) && (
-                    <div className="ml-6 space-y-2 border-l-2 border-gray-200 pl-4">
-                      {(campaign.flow_config?.steps || project?.flow_config?.steps || [])
-                        .sort((a, b) => a.order - b.order)
-                        .map((step) => {
-                          const stepStatus = getStepStatus(campaign, step.id)
-                          const stepRunning = isStepRunning(campaign.id, step.id)
-                          const stepOutput = campaign.step_outputs?.[step.id]
+                {/* Variables Section - Collapsible */}
+                {varsCount > 0 && (
+                  <div className="border-b border-gray-100">
+                    <button
+                      onClick={() => toggleVariablesExpanded(campaign.id)}
+                      className="w-full px-4 py-2 flex items-center justify-between text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      <span className="inline-flex items-center gap-1.5">
+                        <Variable size={14} />
+                        {varsCount} variables
+                      </span>
+                      <ChevronDown
+                        size={14}
+                        className={`transition-transform ${expandedVariables.has(campaign.id) ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                    {expandedVariables.has(campaign.id) && (
+                      <div className="px-4 pb-3 space-y-1.5">
+                        {Object.entries(campaign.custom_variables as Record<string, string>).slice(0, 6).map(([key, value]) => (
+                          <div key={key} className="flex items-start gap-2 text-xs">
+                            <code className="font-mono text-blue-600 bg-blue-50 px-1 rounded shrink-0">
+                              {key}
+                            </code>
+                            <span className="text-gray-600 truncate" title={value}>
+                              {value || <span className="italic text-gray-400">vacío</span>}
+                            </span>
+                          </div>
+                        ))}
+                        {varsCount > 6 && (
+                          <p className="text-xs text-gray-400">+{varsCount - 6} más...</p>
+                        )}
+                        <button
+                          onClick={() => handleEditCampaign(campaign)}
+                          className="mt-2 px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100 inline-flex items-center gap-1"
+                        >
+                          <Edit2 size={10} />
+                          Editar variables
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Documents Section - Collapsible */}
+                <div className="border-b border-gray-100">
+                  <button
+                    onClick={() => toggleDocsExpanded(campaign.id)}
+                    className="w-full px-4 py-2 flex items-center justify-between text-xs font-medium text-gray-600 hover:bg-gray-50"
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <FileText size={14} />
+                      Documentos específicos
+                      {campaignDocs[campaign.id]?.length > 0 && (
+                        <span className="bg-blue-100 text-blue-600 px-1.5 rounded-full">
+                          {campaignDocs[campaign.id].length}
+                        </span>
+                      )}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowDocsGuide(campaign.id)
+                        }}
+                        className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded"
+                        title="Ver guía de documentación"
+                      >
+                        <Info size={14} />
+                      </button>
+                      <ChevronDown
+                        size={14}
+                        className={`transition-transform ${expandedDocs.has(campaign.id) ? 'rotate-180' : ''}`}
+                      />
+                    </div>
+                  </button>
+                  {expandedDocs.has(campaign.id) && (
+                    <div className="px-4 pb-3 space-y-2">
+                      {campaignDocs[campaign.id]?.length > 0 ? (
+                        campaignDocs[campaign.id].map(doc => (
+                          <div key={doc.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <FileText size={12} className="text-gray-400 shrink-0" />
+                              <span className="text-gray-700 truncate">{doc.filename}</span>
+                              <span className="text-gray-400">({doc.category})</span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-gray-500 italic py-2">
+                          No hay documentos específicos para esta campaña.
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-2">
+                        Sube documentos desde la pestaña Documentos y asígnalos a esta campaña.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Research Prompts Section - Collapsible */}
+                {project?.deep_research_prompts && project.deep_research_prompts.length > 0 && (
+                  <div className="border-b border-gray-100">
+                    <button
+                      onClick={() => toggleResearchPromptsExpanded(campaign.id)}
+                      className="w-full px-4 py-2 flex items-center justify-between text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      <span className="inline-flex items-center gap-1.5">
+                        <BookOpen size={14} />
+                        Prompts de Research
+                        <span className="bg-purple-100 text-purple-600 px-1.5 rounded-full">
+                          {project.deep_research_prompts.length}
+                        </span>
+                      </span>
+                      <ChevronDown
+                        size={14}
+                        className={`transition-transform ${expandedResearchPrompts.has(campaign.id) ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                    {expandedResearchPrompts.has(campaign.id) && (
+                      <div className="px-4 pb-3 space-y-3">
+                        <p className="text-xs text-gray-500 mb-2">
+                          Copia estos prompts con las variables de esta campaña ya reemplazadas:
+                        </p>
+                        {project.deep_research_prompts.map((prompt) => {
+                          const campaignVars = campaign.custom_variables as Record<string, string> || {}
+                          const processedPrompt = getPromptWithRealValues(prompt.content, campaignVars)
+                          const isCopied = copiedPromptId === `${campaign.id}-${prompt.id}`
 
                           return (
-                            <div
-                              key={step.id}
-                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                            >
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-medium text-gray-500">
-                                    Step {step.order}
-                                  </span>
-                                  <h4 className="font-medium text-sm text-gray-900">{step.name}</h4>
+                            <div key={prompt.id} className="bg-purple-50 border border-purple-100 rounded-lg p-3">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <h4 className="text-xs font-semibold text-purple-800">
+                                  {prompt.name}
+                                </h4>
+                                <button
+                                  onClick={() => copyPromptToClipboard(`${campaign.id}-${prompt.id}`, prompt.content, campaignVars)}
+                                  className={`shrink-0 px-2 py-1 text-xs rounded inline-flex items-center gap-1 transition-colors ${
+                                    isCopied
+                                      ? 'bg-green-600 text-white'
+                                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                                  }`}
+                                  title="Copiar prompt con variables reemplazadas"
+                                >
+                                  {isCopied ? (
+                                    <>
+                                      <Check size={12} />
+                                      Copiado
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy size={12} />
+                                      Copiar
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                              <div className="text-xs text-purple-700 whitespace-pre-wrap max-h-32 overflow-y-auto bg-white/50 rounded p-2 border border-purple-100">
+                                {processedPrompt.length > 300
+                                  ? `${processedPrompt.substring(0, 300)}...`
+                                  : processedPrompt}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Steps Section - Collapsible */}
+                {(campaign.flow_config?.steps || project?.flow_config?.steps) && (
+                  <div className="border-b border-gray-100">
+                    <button
+                      onClick={() => toggleCampaignExpanded(campaign.id)}
+                      className="w-full px-4 py-2 flex items-center justify-between text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      <span className="inline-flex items-center gap-1.5">
+                        <Settings size={14} />
+                        {totalSteps} steps
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingFlowCampaignId(campaign.id)
+                          }}
+                          className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+                        >
+                          Edit Flow
+                        </button>
+                        <ChevronDown
+                          size={14}
+                          className={`transition-transform ${expandedCampaigns.has(campaign.id) ? 'rotate-180' : ''}`}
+                        />
+                      </div>
+                    </button>
+                    {expandedCampaigns.has(campaign.id) && (
+                      <div className="px-4 pb-3 space-y-2">
+                        {(campaign.flow_config?.steps || project?.flow_config?.steps || [])
+                          .sort((a, b) => a.order - b.order)
+                          .map((step) => {
+                            const stepStatus = getStepStatus(campaign, step.id)
+                            const stepRunning = isStepRunning(campaign.id, step.id)
+                            const stepOutput = campaign.step_outputs?.[step.id]
+
+                            return (
+                              <div
+                                key={step.id}
+                                className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs"
+                              >
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <span className="text-gray-400 shrink-0">{step.order}.</span>
+                                  <span className="text-gray-700 truncate">{step.name}</span>
                                   {stepStatus === 'completed' && (
-                                    <CheckCircle size={16} className="text-green-600" />
+                                    <CheckCircle size={12} className="text-green-600 shrink-0" />
                                   )}
                                   {stepRunning && (
-                                    <Clock size={16} className="text-blue-600 animate-spin" />
+                                    <Clock size={12} className="text-blue-600 animate-spin shrink-0" />
                                   )}
                                 </div>
-                                {step.description && (
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    {step.description}
-                                  </p>
-                                )}
-                                {stepOutput && (
-                                  <div className="text-xs text-gray-600 mt-1">
-                                    <span className="font-medium">Tokens:</span> {stepOutput.tokens || 'N/A'}
-                                    {stepOutput.completed_at && (
-                                      <span className="ml-3">
-                                        <span className="font-medium">Completed:</span>{' '}
-                                        {new Date(stepOutput.completed_at).toLocaleTimeString()}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="ml-4 flex gap-2">
-                                <button
-                                  onClick={() => handleRunStep(campaign.id, step.id, step.name)}
-                                  disabled={stepRunning || running === campaign.id}
-                                  className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed inline-flex items-center gap-1"
-                                >
-                                  <Play size={14} />
-                                  {stepRunning ? 'Running...' : 'Run'}
-                                </button>
-                                {stepOutput && stepOutput.output && (
-                                  <>
+                                <div className="flex gap-1 shrink-0">
+                                  <button
+                                    onClick={() => handleRunStep(campaign.id, step.id, step.name)}
+                                    disabled={stepRunning || running === campaign.id}
+                                    className="p-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
+                                    title="Run step"
+                                  >
+                                    <Play size={12} />
+                                  </button>
+                                  {stepOutput?.output && (
                                     <button
                                       onClick={() => setEditingStepOutput({
                                         campaignId: campaign.id,
@@ -957,185 +1247,106 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
                                         stepName: step.name,
                                         stepOrder: step.order,
                                       })}
-                                      className={`px-3 py-1.5 text-sm rounded-lg inline-flex items-center gap-1 ${
+                                      className={`p-1 rounded ${
                                         stepOutput.edited_at
-                                          ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                                          : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                          ? 'bg-amber-100 text-amber-700'
+                                          : 'bg-green-100 text-green-700'
                                       }`}
-                                      title="Revisar y editar el output antes de pasar al siguiente paso"
+                                      title="View output"
                                     >
-                                      <Eye size={14} />
-                                      {stepOutput.edited_at ? 'Output Editado' : 'Revisar Output'}
+                                      <Eye size={12} />
                                     </button>
-                                    <button
-                                      onClick={() => {
-                                        const { extension, mimeType } = getFileExtensionAndMimeType(step.output_format)
-                                        const text = `=== ${step.name} ===\n\n${stepOutput.output}\n\nTokens: ${stepOutput.tokens || 'N/A'}\nCompleted: ${stepOutput.completed_at || 'N/A'}`
-                                        const blob = new Blob([text], { type: mimeType })
-                                        const url = URL.createObjectURL(blob)
-                                        const a = document.createElement('a')
-                                        a.href = url
-                                        a.download = `${campaign.ecp_name.replace(/\s+/g, '_')}_${step.name.replace(/\s+/g, '_')}.${extension}`
-                                        a.click()
-                                      }}
-                                      className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 inline-flex items-center gap-1"
-                                      title={`Download as .${getFileExtensionAndMimeType(step.output_format).extension}`}
-                                    >
-                                      <Download size={14} />
-                                    </button>
-                                  </>
-                                )}
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )
-                        })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex gap-3 flex-wrap">
-                {/* Edit button - only for draft campaigns */}
-                {campaign.status === 'draft' && (
-                  <button
-                    onClick={() => handleEditCampaign(campaign)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 inline-flex items-center gap-2"
-                  >
-                    <Edit2 size={16} />
-                    Edit
-                  </button>
-                )}
-
-                {/* Run/Re-run button - always available */}
-                <button
-                  onClick={() => handleRunCampaign(campaign.id)}
-                  disabled={running === campaign.id}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed inline-flex items-center gap-2"
-                >
-                  <Play size={16} />
-                  {running === campaign.id
-                    ? 'Running...'
-                    : (campaign.status === 'draft' ? 'Run Campaign' : 'Re-run Campaign')
-                  }
-                </button>
-
-                {/* Download outputs - available when there are step outputs */}
-                {campaign.step_outputs && Object.keys(campaign.step_outputs).length > 0 && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setDownloadFormatMenu(downloadFormatMenu === campaign.id ? null : campaign.id)}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 inline-flex items-center gap-2"
-                    >
-                      <Download size={16} />
-                      Download Outputs
-                      <ChevronDown size={14} className={`transition-transform ${downloadFormatMenu === campaign.id ? 'rotate-180' : ''}`} />
-                    </button>
-                    {downloadFormatMenu === campaign.id && (
-                      <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
-                        <button
-                          onClick={() => downloadAllOutputs(campaign, 'text')}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 first:rounded-t-lg"
-                        >
-                          Text (.txt)
-                        </button>
-                        <button
-                          onClick={() => downloadAllOutputs(campaign, 'markdown')}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          Markdown (.md)
-                        </button>
-                        <button
-                          onClick={() => downloadAllOutputs(campaign, 'html')}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          HTML (.html)
-                        </button>
-                        <button
-                          onClick={() => downloadAllOutputs(campaign, 'json')}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 last:rounded-b-lg"
-                        >
-                          JSON (.json)
-                        </button>
+                            )
+                          })}
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* View Summary - available when there are step outputs */}
-                {campaign.step_outputs && Object.keys(campaign.step_outputs).length > 0 && (
+                {/* Card Footer - Actions */}
+                <div className="p-3 bg-gray-50 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1">
+                    {/* Run button */}
+                    <button
+                      onClick={() => handleRunCampaign(campaign.id)}
+                      disabled={running === campaign.id}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-300 inline-flex items-center gap-1"
+                      title={campaign.status === 'draft' ? 'Run campaign' : 'Re-run campaign'}
+                    >
+                      <Play size={12} />
+                      {running === campaign.id ? 'Running...' : 'Run'}
+                    </button>
+
+                    {/* Download */}
+                    {stepsCount > 0 && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setDownloadFormatMenu(downloadFormatMenu === campaign.id ? null : campaign.id)}
+                          className="p-1.5 border border-gray-300 text-gray-600 rounded hover:bg-white"
+                          title="Download outputs"
+                        >
+                          <Download size={14} />
+                        </button>
+                        {downloadFormatMenu === campaign.id && (
+                          <div className="absolute bottom-full left-0 mb-1 bg-white border border-gray-200 rounded shadow-lg z-10 min-w-[120px]">
+                            <button onClick={() => downloadAllOutputs(campaign, 'text')} className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50">Text</button>
+                            <button onClick={() => downloadAllOutputs(campaign, 'markdown')} className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50">Markdown</button>
+                            <button onClick={() => downloadAllOutputs(campaign, 'html')} className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50">HTML</button>
+                            <button onClick={() => downloadAllOutputs(campaign, 'json')} className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50">JSON</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Duplicate */}
+                    <button
+                      onClick={() => handleDuplicateCampaign(campaign)}
+                      className="p-1.5 border border-gray-300 text-gray-600 rounded hover:bg-white"
+                      title="Duplicate campaign"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+
+                  {/* Delete */}
                   <button
-                    onClick={() => {
-                      const outputs = campaign.step_outputs
-                      const steps = campaign.flow_config?.steps || project?.flow_config?.steps || []
-
-                      // Sort outputs by step order
-                      const sortedOutputs = steps
-                        .sort((a, b) => a.order - b.order)
-                        .map(step => ({
-                          stepName: step.name,
-                          stepOrder: step.order,
-                          data: outputs[step.id]
-                        }))
-                        .filter(item => item.data && item.data.output)
-
-                      const message = sortedOutputs
-                        .map(item => `Step ${item.stepOrder} - ${item.stepName}:\n${item.data.output.substring(0, 200)}...`)
-                        .join('\n\n')
-                      alert(message)
-                    }}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    onClick={() => handleDeleteCampaign(campaign.id, campaign.ecp_name)}
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                    title="Delete campaign"
                   >
-                    View Summary
+                    <Trash2 size={14} />
                   </button>
-                )}
-
-                {/* Duplicate button - available for all campaigns */}
-                <button
-                  onClick={() => handleDuplicateCampaign(campaign)}
-                  className="px-4 py-2 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 inline-flex items-center gap-2"
-                  title="Duplicate this campaign with same configuration and variables"
-                >
-                  <Plus size={16} />
-                  Duplicate
-                </button>
-
-                {/* Delete button - available for all campaigns */}
-                <button
-                  onClick={() => handleDeleteCampaign(campaign.id, campaign.ecp_name)}
-                  className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 inline-flex items-center gap-2"
-                  title="Delete this campaign"
-                >
-                  <Trash2 size={16} />
-                  Delete
-                </button>
+                </div>
               </div>
-
-              <p className="text-xs text-gray-500 mt-3">
-                Created: {new Date(campaign.created_at).toLocaleString()}
-              </p>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
       {/* Campaign Flow Editor */}
-      {editingFlowCampaignId && (
-        <CampaignFlowEditor
-          campaignId={editingFlowCampaignId}
-          initialFlowConfig={campaigns.find(c => c.id === editingFlowCampaignId)?.flow_config || project?.flow_config || null}
-          documents={documents}
-          projectVariables={project?.variable_definitions || []}
-          onClose={() => setEditingFlowCampaignId(null)}
-          onSave={(flowConfig) => {
-            // Update local campaign state
-            setCampaigns(prev => prev.map(c =>
-              c.id === editingFlowCampaignId ? { ...c, flow_config: flowConfig } : c
-            ))
-            setEditingFlowCampaignId(null)
-          }}
-        />
-      )}
+      {editingFlowCampaignId && (() => {
+        const editingCampaign = campaigns.find(c => c.id === editingFlowCampaignId)
+        return (
+          <CampaignFlowEditor
+            campaignId={editingFlowCampaignId}
+            initialFlowConfig={editingCampaign?.flow_config || project?.flow_config || null}
+            documents={documents}
+            projectVariables={project?.variable_definitions || []}
+            campaignVariables={editingCampaign?.custom_variables as Record<string, string> || {}}
+            onClose={() => setEditingFlowCampaignId(null)}
+            onSave={(flowConfig) => {
+              // Update local campaign state
+              setCampaigns(prev => prev.map(c =>
+                c.id === editingFlowCampaignId ? { ...c, flow_config: flowConfig } : c
+              ))
+              setEditingFlowCampaignId(null)
+            }}
+          />
+        )
+      })()}
 
       {/* Step Output Editor */}
       {editingStepOutput && (() => {
@@ -1176,6 +1387,60 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
             loadCampaigns()
           }}
         />
+      )}
+
+      {/* Documentation Guide Modal */}
+      {showDocsGuide && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">📚 Guía de Documentación para Campaña</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Documentos adicionales recomendados para esta campaña
+                </p>
+              </div>
+              <button
+                onClick={() => setShowDocsGuide(null)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              <div className="prose prose-sm max-w-none text-gray-700">
+                {project?.campaign_docs_guide ? (
+                  <div className="whitespace-pre-wrap">{project.campaign_docs_guide}</div>
+                ) : (
+                  <div className="space-y-4">
+                    <p>Para cada campaña, considera subir los siguientes documentos específicos:</p>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-blue-800 mb-2">1. Análisis de competidores del ECP</h4>
+                      <p className="text-blue-700 text-sm">Investiga cómo los competidores abordan este problema específico en el mercado objetivo.</p>
+                    </div>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-green-800 mb-2">2. Research de mercado del segmento</h4>
+                      <p className="text-green-700 text-sm">Datos y estadísticas específicas del segmento objetivo de la campaña.</p>
+                    </div>
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-purple-800 mb-2">3. Casos de uso específicos</h4>
+                      <p className="text-purple-700 text-sm">Ejemplos o testimonios relevantes para este ECP particular.</p>
+                    </div>
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-orange-800 mb-2">4. Materiales de producto relevantes</h4>
+                      <p className="text-orange-700 text-sm">Características o beneficios del producto que aplican especialmente a este ECP.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <p className="text-xs text-gray-500">
+                💡 Sube estos documentos desde la pestaña "Documentos" y asígnalos a esta campaña específica.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

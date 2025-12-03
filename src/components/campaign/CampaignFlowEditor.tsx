@@ -11,6 +11,7 @@ interface CampaignFlowEditorProps {
   initialFlowConfig: FlowConfig | null
   documents: any[]
   projectVariables: any[]
+  campaignVariables?: Record<string, string> // Variables reales de la campaña
   onClose: () => void
   onSave: (flowConfig: FlowConfig) => void
 }
@@ -20,6 +21,7 @@ export default function CampaignFlowEditor({
   initialFlowConfig,
   documents,
   projectVariables,
+  campaignVariables = {},
   onClose,
   onSave,
 }: CampaignFlowEditorProps) {
@@ -238,6 +240,7 @@ export default function CampaignFlowEditor({
           documents={documents}
           allSteps={flowConfig.steps}
           projectVariables={projectVariables}
+          campaignVariables={campaignVariables}
           onSave={handleStepUpdate}
           onCancel={() => setEditingStep(null)}
         />

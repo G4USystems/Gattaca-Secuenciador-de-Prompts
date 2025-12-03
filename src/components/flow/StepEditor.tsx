@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Eye, Code } from 'lucide-react'
 import { FlowStep, OutputFormat } from '@/types/flow.types'
 import { formatTokenCount } from '@/lib/supabase'
 
@@ -10,6 +10,7 @@ interface StepEditorProps {
   documents: any[]
   allSteps: FlowStep[]
   projectVariables: Array<{ name: string; default_value?: string; description?: string }>
+  campaignVariables?: Record<string, string> // Variables reales de la campaña
   onSave: (step: FlowStep) => void
   onCancel: () => void
 }
@@ -28,11 +29,29 @@ export default function StepEditor({
   documents,
   allSteps,
   projectVariables,
+  campaignVariables = {},
   onSave,
   onCancel,
 }: StepEditorProps) {
   const [editedStep, setEditedStep] = useState<FlowStep>({ ...step })
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [showRealValues, setShowRealValues] = useState(false)
+
+  // Reemplazar variables en el prompt con valores reales
+  const getPromptWithRealValues = (prompt: string): string => {
+    let result = prompt
+
+    // Variables de campaña (custom_variables)
+    Object.entries(campaignVariables).forEach(([key, value]) => {
+      const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g')
+      result = result.replace(regex, value || `[${key}: sin valor]`)
+    })
+
+    return result
+  }
+
+  const displayPrompt = showRealValues ? getPromptWithRealValues(editedStep.prompt) : editedStep.prompt
+  const hasVariables = Object.keys(campaignVariables).length > 0
 
   // Previous steps (lower order) that can be dependencies
   const availablePrevSteps = allSteps.filter((s) => s.order < step.order)
@@ -240,17 +259,58 @@ export default function StepEditor({
 
           {/* Prompt */}
           <div>
-            <label className="block font-medium text-gray-900 mb-2">
-              📝 Prompt
-            </label>
-            <textarea
-              value={editedStep.prompt}
-              onChange={(e) =>
-                setEditedStep((prev) => ({ ...prev, prompt: e.target.value }))
-              }
-              rows={12}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 text-gray-900"
-            />
+            <div className="flex items-center justify-between mb-2">
+              <label className="block font-medium text-gray-900">
+                📝 Prompt
+              </label>
+              {hasVariables && (
+                <button
+                  type="button"
+                  onClick={() => setShowRealValues(!showRealValues)}
+                  className={`px-3 py-1.5 text-xs rounded-lg inline-flex items-center gap-1.5 transition-colors ${
+                    showRealValues
+                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {showRealValues ? (
+                    <>
+                      <Eye size={14} />
+                      Valores reales
+                    </>
+                  ) : (
+                    <>
+                      <Code size={14} />
+                      Variables genéricas
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {showRealValues ? (
+              // Vista de solo lectura con valores reales
+              <div className="w-full px-3 py-2 border border-green-300 bg-green-50 rounded-lg font-mono text-sm text-gray-900 whitespace-pre-wrap max-h-96 overflow-y-auto">
+                {displayPrompt}
+              </div>
+            ) : (
+              // Vista editable con variables
+              <textarea
+                value={editedStep.prompt}
+                onChange={(e) =>
+                  setEditedStep((prev) => ({ ...prev, prompt: e.target.value }))
+                }
+                rows={12}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 text-gray-900"
+              />
+            )}
+
+            {showRealValues && (
+              <p className="text-xs text-green-600 mt-2">
+                Vista previa con los valores de las variables de esta campaña (solo lectura)
+              </p>
+            )}
+
             <p className="text-xs text-gray-500 mt-2">
               <span className="font-medium">Available variables:</span>{' '}
               {[
