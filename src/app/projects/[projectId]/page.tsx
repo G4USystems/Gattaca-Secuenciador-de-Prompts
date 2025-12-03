@@ -268,6 +268,7 @@ function DocumentsTab({
   totalTokens: number
 }) {
   const [viewingDoc, setViewingDoc] = useState<any | null>(null)
+  const [showGuide, setShowGuide] = useState(true)
 
   const handleDelete = async (docId: string) => {
     try {
@@ -292,6 +293,48 @@ function DocumentsTab({
           <DocumentBulkUpload projectId={projectId} onUploadComplete={onReload} />
         </div>
       </div>
+
+      {/* Documentation Guide */}
+      {showGuide && (
+        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="font-semibold text-blue-900 mb-2">📚 Guía de Documentación</h3>
+              <p className="text-sm text-blue-800 mb-3">
+                Para obtener mejores resultados, organiza tu documentación en estas categorías:
+              </p>
+              <div className="grid md:grid-cols-2 gap-3 text-sm">
+                <div className="bg-white/60 rounded p-3">
+                  <span className="font-medium text-blue-700">📦 Producto</span>
+                  <p className="text-blue-600 mt-1">Fichas técnicas, features, beneficios, casos de uso, pricing</p>
+                </div>
+                <div className="bg-white/60 rounded p-3">
+                  <span className="font-medium text-purple-700">🎯 Competidor</span>
+                  <p className="text-purple-600 mt-1">Análisis competitivo, comparativas, posicionamiento de mercado</p>
+                </div>
+                <div className="bg-white/60 rounded p-3">
+                  <span className="font-medium text-green-700">🔬 Research</span>
+                  <p className="text-green-600 mt-1">Estudios de mercado, insights de cliente, tendencias del sector</p>
+                </div>
+                <div className="bg-white/60 rounded p-3">
+                  <span className="font-medium text-orange-700">📝 Output</span>
+                  <p className="text-orange-600 mt-1">Guías de marca, tono de voz, ejemplos de mensajes anteriores</p>
+                </div>
+              </div>
+              <p className="text-xs text-blue-700 mt-3">
+                💡 <strong>Tip:</strong> Los documentos que subas aquí aplican a todas las campañas del proyecto.
+                En el futuro podrás asignar documentos específicos a campañas individuales.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowGuide(false)}
+              className="p-1 text-blue-400 hover:text-blue-600"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Token Monitor */}
       {documents.length > 0 && (
