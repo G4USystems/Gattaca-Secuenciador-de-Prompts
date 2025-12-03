@@ -254,7 +254,7 @@ export default function ProjectPage({
               <FlowSetup projectId={params.projectId} documents={documents} />
             )}
             {activeTab === 'campaigns' && (
-              <CampaignRunner projectId={params.projectId} />
+              <CampaignRunner projectId={params.projectId} project={project} />
             )}
           </div>
         </div>

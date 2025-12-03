@@ -9,6 +9,7 @@ import { FlowConfig, FlowStep } from '@/types/flow.types'
 
 interface CampaignRunnerProps {
   projectId: string
+  project?: Project | null
 }
 
 interface Campaign {
@@ -63,9 +64,9 @@ interface CampaignDocument {
   created_at: string
 }
 
-export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
+export default function CampaignRunner({ projectId, project: projectProp }: CampaignRunnerProps) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
-  const [project, setProject] = useState<Project | null>(null)
+  const [project, setProject] = useState<Project | null>(projectProp || null)
   const [loading, setLoading] = useState(true)
   const [showNewForm, setShowNewForm] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -114,11 +115,23 @@ export default function CampaignRunner({ projectId }: CampaignRunnerProps) {
     setCustomVariables(customVariables.filter((_, i) => i !== index))
   }
 
+  // Sync with project prop if provided
   useEffect(() => {
-    loadProject()
+    if (projectProp) {
+      setProject(projectProp)
+      console.log('CampaignRunner - Using project from prop:', projectProp)
+      console.log('CampaignRunner - variable_definitions from prop:', projectProp?.variable_definitions)
+    }
+  }, [projectProp])
+
+  useEffect(() => {
+    // Only load project if not provided as prop
+    if (!projectProp) {
+      loadProject()
+    }
     loadCampaigns()
     loadDocuments()
-  }, [projectId])
+  }, [projectId, projectProp])
 
   const loadProject = async () => {
     try {
