@@ -99,12 +99,13 @@ export default function MarkdownRenderer({ content, className = '' }: MarkdownRe
       .replace(/>/g, '&gt;')
 
     // Code blocks (must be processed before other formatting)
+    // Use dark text on light background for better visibility
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-      return `<pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4 text-sm"><code class="language-${lang}">${code.trim()}</code></pre>`
+      return `<pre class="bg-gray-100 text-gray-900 p-4 rounded-lg overflow-x-auto my-4 text-sm border border-gray-300"><code class="language-${lang} text-gray-900">${code.trim()}</code></pre>`
     })
 
-    // Inline code
-    html = html.replace(/`([^`]+)`/g, '<code class="bg-gray-100 text-red-600 px-1.5 py-0.5 rounded text-sm font-mono">$1</code>')
+    // Inline code - ensure dark text
+    html = html.replace(/`([^`]+)`/g, '<code class="bg-gray-100 text-gray-900 px-1.5 py-0.5 rounded text-sm font-mono border border-gray-200">$1</code>')
 
     // Headers (process from h6 to h1 to avoid conflicts)
     html = html.replace(/^###### (.+)$/gm, '<h6 class="text-sm font-semibold text-gray-700 mt-4 mb-2">$1</h6>')
@@ -203,7 +204,8 @@ export default function MarkdownRenderer({ content, className = '' }: MarkdownRe
 
   return (
     <div
-      className={`markdown-content prose prose-sm max-w-none ${className}`}
+      className={`markdown-content max-w-none text-gray-900 ${className}`}
+      style={{ color: '#111827' }}
       dangerouslySetInnerHTML={{ __html: renderedContent }}
     />
   )
