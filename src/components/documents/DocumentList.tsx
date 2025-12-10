@@ -55,25 +55,29 @@ export default function DocumentList({
   }
 
   const getCategoryBadge = (category: DocCategory) => {
-    const styles = {
+    const styles: Record<string, string> = {
       product: 'bg-blue-100 text-blue-800',
       competitor: 'bg-purple-100 text-purple-800',
       research: 'bg-green-100 text-green-800',
       output: 'bg-orange-100 text-orange-800',
     }
 
-    const labels = {
+    const labels: Record<string, string> = {
       product: '📦 Producto',
       competitor: '🎯 Competidor',
       research: '🔬 Research',
       output: '📝 Output',
     }
 
+    // Default style for custom categories
+    const style = styles[category] || 'bg-gray-100 text-gray-800'
+    const label = labels[category] || `🏷️ ${category}`
+
     return (
       <span
-        className={`px-2 py-1 rounded text-xs font-medium ${styles[category]}`}
+        className={`px-2 py-1 rounded text-xs font-medium ${style}`}
       >
-        {labels[category]}
+        {label}
       </span>
     )
   }
