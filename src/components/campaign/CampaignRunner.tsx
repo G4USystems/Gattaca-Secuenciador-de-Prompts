@@ -1621,13 +1621,21 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
         const filteredDocuments = documents.filter(doc =>
           !doc.campaign_id || doc.campaign_id === editingFlowCampaignId
         )
+        // Combine legacy fields + custom_variables for variable preview
+        const allCampaignVariables: Record<string, string> = {
+          ...(editingCampaign?.ecp_name && { ecp_name: editingCampaign.ecp_name }),
+          ...(editingCampaign?.problem_core && { problem_core: editingCampaign.problem_core }),
+          ...(editingCampaign?.country && { country: editingCampaign.country }),
+          ...(editingCampaign?.industry && { industry: editingCampaign.industry }),
+          ...(editingCampaign?.custom_variables as Record<string, string> || {}),
+        }
         return (
           <CampaignFlowEditor
             campaignId={editingFlowCampaignId}
             initialFlowConfig={editingCampaign?.flow_config || project?.flow_config || null}
             documents={filteredDocuments}
             projectVariables={project?.variable_definitions || []}
-            campaignVariables={editingCampaign?.custom_variables as Record<string, string> || {}}
+            campaignVariables={allCampaignVariables}
             onClose={() => setEditingFlowCampaignId(null)}
             onSave={(flowConfig) => {
               // Update local campaign state
