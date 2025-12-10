@@ -185,40 +185,6 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
     }
   }
 
-  // Duplicate campaign
-  const handleDuplicateCampaign = async (campaign: Campaign) => {
-    if (!confirm(`¿Duplicar la campaña "${campaign.ecp_name}"?`)) return
-
-    try {
-      const newCampaign = {
-        ecp_name: `${campaign.ecp_name} (copia)`,
-        problem_core: campaign.problem_core,
-        country: campaign.country,
-        industry: campaign.industry,
-        custom_variables: campaign.custom_variables,
-        flow_config: campaign.flow_config,
-        research_prompt: campaign.research_prompt,
-      }
-
-      const response = await fetch('/api/campaign/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, ...newCampaign }),
-      })
-
-      const data = await response.json()
-      if (data.success) {
-        loadCampaigns()
-        alert('✅ Campaña duplicada exitosamente')
-      } else {
-        throw new Error(data.error || 'Failed to duplicate')
-      }
-    } catch (error) {
-      console.error('Error duplicating campaign:', error)
-      alert(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-  }
-
   // Export all prompts as JSON or Markdown
   const handleExportPrompts = (format: 'json' | 'markdown') => {
     const flowConfig = project?.flow_config
