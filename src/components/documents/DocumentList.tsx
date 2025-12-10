@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { FileText, Trash2, Eye, Link2 } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { FileText, Trash2, Eye, Link2, Search, Filter } from 'lucide-react'
 import { DocCategory } from '@/types/database.types'
 import { formatTokenCount } from '@/lib/supabase'
 
@@ -36,6 +36,36 @@ export default function DocumentList({
   onCampaignChange,
 }: DocumentListProps) {
   const [updatingDoc, setUpdatingDoc] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'global' | 'assigned'>('all')
+
+  // Get unique categories
+  const categories = useMemo(() => {
+    return Array.from(new Set(documents.map(d => d.category))).sort()
+  }, [documents])
+
+  // Filter documents
+  const filteredDocs = useMemo(() => {
+    return documents.filter(doc => {
+      // Search filter
+      if (searchQuery && !doc.filename.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false
+      }
+      // Category filter
+      if (categoryFilter !== 'all' && doc.category !== categoryFilter) {
+        return false
+      }
+      // Assignment filter
+      if (assignmentFilter === 'global' && doc.campaign_id) {
+        return false
+      }
+      if (assignmentFilter === 'assigned' && !doc.campaign_id) {
+        return false
+      }
+      return true
+    })
+  }, [documents, searchQuery, categoryFilter, assignmentFilter])
 
   const handleCampaignChange = async (docId: string, campaignId: string) => {
     if (!onCampaignChange) return
@@ -95,8 +125,94 @@ export default function DocumentList({
   }
 
   return (
-    <div className="space-y-3">
-      {documents.map((doc) => (
+    <div className="space-y-4">
+      {/* Search and Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar documentos..."
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+          />
+        </div>
+
+        {/* Category Filter */}
+        <div className="flex items-center gap-2">
+          <Filter size={16} className="text-gray-400" />
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Todas las categorías ({documents.length})</option>
+            {categories.map(cat => {
+              const count = documents.filter(d => d.category === cat).length
+              return (
+                <option key={cat} value={cat}>
+                  {cat} ({count})
+                </option>
+              )
+            })}
+          </select>
+        </div>
+
+        {/* Assignment Filter */}
+        {campaigns.length > 0 && (
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+            <button
+              onClick={() => setAssignmentFilter('all')}
+              className={`px-3 py-1.5 text-xs rounded transition-colors ${
+                assignmentFilter === 'all'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Todos
+            </button>
+            <button
+              onClick={() => setAssignmentFilter('global')}
+              className={`px-3 py-1.5 text-xs rounded transition-colors ${
+                assignmentFilter === 'global'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Globales
+            </button>
+            <button
+              onClick={() => setAssignmentFilter('assigned')}
+              className={`px-3 py-1.5 text-xs rounded transition-colors ${
+                assignmentFilter === 'assigned'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Asignados
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Results count */}
+      {(searchQuery || categoryFilter !== 'all' || assignmentFilter !== 'all') && (
+        <p className="text-sm text-gray-500">
+          Mostrando {filteredDocs.length} de {documents.length} documentos
+          {searchQuery && <span className="ml-1">para "{searchQuery}"</span>}
+        </p>
+      )}
+
+      {/* Document List */}
+      <div className="space-y-3">
+        {filteredDocs.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <p>No hay documentos que coincidan con los filtros</p>
+          </div>
+        ) : (
+          filteredDocs.map((doc) => (
         <div
           key={doc.id}
           className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
@@ -182,7 +298,9 @@ export default function DocumentList({
             </div>
           </div>
         </div>
-      ))}
+          ))
+        )}
+      </div>
     </div>
   )
 }
