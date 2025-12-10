@@ -401,49 +401,77 @@ export default function StepEditor({
               </p>
             )}
 
-            <p className="text-xs text-gray-500 mt-2">
-              <span className="font-medium">Available variables:</span>{' '}
-              {(() => {
-                // Extract variables from all step prompts
-                const extractVariablesFromPrompts = () => {
-                  const vars: string[] = []
+            {/* Available Variables Section */}
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm font-medium text-blue-800 mb-2">Variables disponibles ({
+                (() => {
+                  const allVarsSet = new Set<string>()
+                  // Base variables
+                  ;['ecp_name', 'problem_core', 'country', 'industry', 'client_name'].forEach(v => allVarsSet.add(v))
+                  // Project variables
+                  if (projectVariables) projectVariables.forEach(v => v?.name && allVarsSet.add(v.name))
+                  // Campaign variables
+                  if (campaignVariables) Object.keys(campaignVariables).forEach(k => allVarsSet.add(k))
+                  return allVarsSet.size
+                })()
+              }):</p>
+              <div className="flex flex-wrap gap-2">
+                {(() => {
+                  const allVarsSet = new Set<string>()
+
+                  // 1. Base/legacy variables
+                  ;['ecp_name', 'problem_core', 'country', 'industry', 'client_name'].forEach(v => allVarsSet.add(v))
+
+                  // 2. Project-defined variables
+                  if (projectVariables && Array.isArray(projectVariables)) {
+                    projectVariables.forEach(v => {
+                      if (v && v.name) allVarsSet.add(v.name)
+                    })
+                  }
+
+                  // 3. Campaign variables (includes all merged variables)
+                  if (campaignVariables && typeof campaignVariables === 'object') {
+                    Object.keys(campaignVariables).forEach(k => allVarsSet.add(k))
+                  }
+
+                  // 4. Variables from prompts
                   allSteps.forEach(s => {
-                    const matches = s.prompt.match(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g)
-                    if (matches) {
-                      matches.forEach(match => {
-                        const varName = match.replace(/\{\{\s*|\s*\}\}/g, '')
-                        vars.push(varName)
-                      })
+                    if (s.prompt) {
+                      const matches = s.prompt.match(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g)
+                      if (matches) {
+                        matches.forEach(match => {
+                          const varName = match.replace(/\{\{\s*|\s*\}\}/g, '')
+                          allVarsSet.add(varName)
+                        })
+                      }
                     }
                   })
-                  return vars
-                }
 
-                const allVars = Array.from(new Set([
-                  // Base variables
-                  'ecp_name',
-                  'problem_core',
-                  'country',
-                  'industry',
-                  'client_name',
-                  // Project-defined variables
-                  ...projectVariables.map((v) => v.name),
-                  // Campaign variables (may include additional custom vars)
-                  ...Object.keys(campaignVariables),
-                  // Variables extracted from prompts
-                  ...extractVariablesFromPrompts(),
-                ])).sort()
-
-                return allVars.map((varName, index, arr) => (
-                  <span key={varName}>
-                    <code className="text-gray-700 bg-gray-100 px-1 rounded">
-                      {'{'}{'{'} {varName} {'}'}{'}'}
+                  return Array.from(allVarsSet).sort().map(varName => (
+                    <code
+                      key={varName}
+                      className="text-xs bg-white text-blue-700 px-2 py-1 rounded border border-blue-300 cursor-pointer hover:bg-blue-100"
+                      onClick={() => {
+                        const textarea = document.querySelector('textarea')
+                        if (textarea && !showRealValues) {
+                          const start = textarea.selectionStart
+                          const end = textarea.selectionEnd
+                          const text = editedStep.prompt
+                          const newText = text.substring(0, start) + `{{ ${varName} }}` + text.substring(end)
+                          setEditedStep(prev => ({ ...prev, prompt: newText }))
+                        }
+                      }}
+                      title="Click para insertar"
+                    >
+                      {`{{ ${varName} }}`}
                     </code>
-                    {index < arr.length - 1 ? ', ' : ''}
-                  </span>
-                ))
-              })()}
-            </p>
+                  ))
+                })()}
+              </div>
+              <p className="text-xs text-blue-600 mt-2">
+                Haz clic en una variable para insertarla en el prompt
+              </p>
+            </div>
           </div>
         </div>
 
