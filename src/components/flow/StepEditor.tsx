@@ -38,6 +38,7 @@ export default function StepEditor({
   const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'assigned' | 'unassigned'>('all')
   const [showRealValues, setShowRealValues] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [hoveredDoc, setHoveredDoc] = useState<any | null>(null)
 
   // Handle save with keyboard
   const handleSaveStep = useCallback(() => {
@@ -290,9 +291,11 @@ export default function StepEditor({
                   {filteredDocs.map((doc) => (
                     <label
                       key={doc.id}
-                      className={`flex items-center gap-3 p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer ${
+                      className={`flex items-center gap-3 p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer relative ${
                         editedStep.base_doc_ids.includes(doc.id) ? 'bg-green-50' : ''
                       }`}
+                      onMouseEnter={() => setHoveredDoc(doc)}
+                      onMouseLeave={() => setHoveredDoc(null)}
                     >
                       <input
                         type="checkbox"
@@ -311,6 +314,16 @@ export default function StepEditor({
                           {formatTokenCount(doc.token_count || 0)} tokens
                         </p>
                       </div>
+                      {/* Preview tooltip */}
+                      {hoveredDoc?.id === doc.id && doc.extracted_content && (
+                        <div className="absolute left-full ml-2 top-0 z-50 w-80 bg-white border border-gray-300 rounded-lg shadow-xl p-3 pointer-events-none">
+                          <p className="text-xs font-medium text-gray-700 mb-1">{doc.filename}</p>
+                          <div className="text-xs text-gray-600 max-h-48 overflow-hidden whitespace-pre-wrap">
+                            {doc.extracted_content.substring(0, 500)}
+                            {doc.extracted_content.length > 500 && '...'}
+                          </div>
+                        </div>
+                      )}
                     </label>
                   ))}
                 </div>
