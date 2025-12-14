@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { X, Eye, Code, Copy, Check, FileText, ArrowRight, Hash, MessageSquare, Sparkles, AlertTriangle, Info } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { X, Eye, Code, Copy, Check, FileText, ArrowRight, Hash, MessageSquare, Sparkles, Info } from 'lucide-react'
 import { FlowStep, OutputFormat } from '@/types/flow.types'
 import { formatTokenCount } from '@/lib/supabase'
 import { usePromptValidator } from '@/hooks/usePromptValidator'
@@ -46,19 +46,52 @@ export default function StepEditor({
   const [autocompleteIndex, setAutocompleteIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Get all available variables
-  const getAllVariables = useCallback(() => {
-    const allVarsSet = new Set<string>()
-    ;['ecp_name', 'problem_core', 'country', 'industry', 'client_name'].forEach(v => allVarsSet.add(v))
-    if (projectVariables) projectVariables.forEach(v => v?.name && allVarsSet.add(v.name))
-    if (campaignVariables) Object.keys(campaignVariables).forEach(k => allVarsSet.add(k))
-    return Array.from(allVarsSet).sort()
+  // Get declared variables (for validation) - only from project and campaign config
+  const declaredVariables = useMemo(() => {
+    const varsSet = new Set<string>()
+
+    // Base campaign variables (always available)
+    ;['ecp_name', 'problem_core', 'country', 'industry'].forEach(v => varsSet.add(v))
+
+    // Project-defined variables
+    if (Array.isArray(projectVariables)) {
+      projectVariables.forEach(v => {
+        if (v && v.name && typeof v.name === 'string' && v.name.trim()) {
+          varsSet.add(v.name.trim())
+        }
+      })
+    }
+
+    // Campaign-specific variables (includes overrides and custom vars)
+    if (campaignVariables && typeof campaignVariables === 'object') {
+      Object.keys(campaignVariables).forEach(k => {
+        if (k && k.trim()) {
+          varsSet.add(k.trim())
+        }
+      })
+    }
+
+    return Array.from(varsSet).sort()
   }, [projectVariables, campaignVariables])
 
-  // Prompt validation
+  // Get all variables for autocomplete (declared + those used in prompt)
+  const allVariables = useMemo(() => {
+    const allVarsSet = new Set<string>(declaredVariables)
+
+    // Also extract variables from the current prompt to help with autocomplete
+    const promptVarRegex = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g
+    let match
+    while ((match = promptVarRegex.exec(editedStep.prompt)) !== null) {
+      allVarsSet.add(match[1])
+    }
+
+    return Array.from(allVarsSet).sort()
+  }, [declaredVariables, editedStep.prompt])
+
+  // Prompt validation - uses only declared variables, not prompt-extracted ones
   const validation = usePromptValidator({
     prompt: editedStep.prompt,
-    declaredVariables: getAllVariables(),
+    declaredVariables: declaredVariables,
     availableSteps: allSteps.filter(s => s.order < step.order).map(s => ({ id: s.id, name: s.name }))
   })
 
@@ -72,7 +105,7 @@ export default function StepEditor({
   }, [editedStep.prompt])
 
   // Filter variables for autocomplete
-  const filteredVariables = getAllVariables().filter(v =>
+  const filteredVariables = allVariables.filter((v: string) =>
     v.toLowerCase().includes(autocompleteFilter.toLowerCase())
   )
 
@@ -596,7 +629,7 @@ export default function StepEditor({
                     <div className="p-2 border-b border-gray-100 bg-gray-50 rounded-t-xl">
                       <p className="text-xs text-gray-500">Variables disponibles (↑↓ navegar, Enter seleccionar)</p>
                     </div>
-                    {filteredVariables.map((varName, index) => (
+                    {filteredVariables.map((varName: string, index: number) => (
                       <button
                         key={varName}
                         type="button"
@@ -631,13 +664,19 @@ export default function StepEditor({
             <div className="mt-4 p-4 bg-white/70 rounded-xl border border-indigo-100">
               <p className="text-sm font-medium text-indigo-800 mb-3 flex items-center gap-2">
                 <Sparkles size={16} />
-                Variables disponibles ({getAllVariables().length})
+                Variables declaradas ({declaredVariables.length})
               </p>
               <div className="flex flex-wrap gap-2">
-                {getAllVariables().map(varName => (
+                {allVariables.map((varName: string) => {
+                  const isDeclared = declaredVariables.includes(varName)
+                  return (
                   <code
                     key={varName}
-                    className="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1.5 rounded-lg border border-indigo-200 cursor-pointer hover:bg-indigo-100 transition-colors"
+                    className={`text-xs px-2.5 py-1.5 rounded-lg border cursor-pointer transition-colors ${
+                      isDeclared
+                        ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                        : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+                    }`}
                     onClick={() => {
                       const textarea = textareaRef.current
                       if (textarea && !showRealValues) {
@@ -653,11 +692,12 @@ export default function StepEditor({
                         }, 0)
                       }
                     }}
-                    title="Click para insertar"
+                    title={isDeclared ? 'Variable declarada - Click para insertar' : 'Variable NO declarada - Agrégala en configuración de variables'}
                   >
                     {`{{ ${varName} }}`}
                   </code>
-                ))}
+                )}
+                )}
               </div>
               <p className="text-xs text-indigo-600 mt-3">
                 Haz clic en una variable para insertarla en el prompt
