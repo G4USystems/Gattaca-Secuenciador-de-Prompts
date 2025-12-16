@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
+
+const supabase = createClient()
 
 type Project = any
 
@@ -70,12 +72,17 @@ export async function createProject(data: {
   name: string
   description?: string
 }) {
-  // For now, use a dummy user_id since we don't have auth yet
+  // Get current authenticated user
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user) {
+    throw new Error('No authenticated user')
+  }
+
   const { data: newProject, error } = await supabase
     .from('projects')
     .insert({
       ...data,
-      user_id: '00000000-0000-0000-0000-000000000000', // Placeholder
+      user_id: session.user.id, // Use authenticated user's ID
     })
     .select()
     .single()

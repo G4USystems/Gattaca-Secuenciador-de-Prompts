@@ -1,9 +1,22 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { AuthProvider } from '@/lib/auth-context'
+import Header from '@/components/Header'
 
 export const metadata: Metadata = {
-  title: 'Gattaca (secuenciador de prompts)',
-  description: 'Sistema automatizado para generar estrategias de marketing',
+  title: 'Gattaca | Secuenciador de prompts de marketing con IA',
+  description: 'Sistema automatizado para generar estrategias de marketing con IA',
+  manifest: '/manifest.json',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#4f46e5' },
+    { media: '(prefers-color-scheme: dark)', color: '#4f46e5' },
+  ],
 }
 
 export default function RootLayout({
@@ -13,7 +26,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>
+          <div className="min-h-screen flex flex-col">
+            <Header />
+            <div className="flex-1">
+              {children}
+            </div>
+          </div>
+        </AuthProvider>
+      </body>
     </html>
   )
 }

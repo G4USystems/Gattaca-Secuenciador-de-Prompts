@@ -20,6 +20,9 @@
     "supabase:logs:execute": "supabase functions logs execute-flow-step"
   },
   "dependencies": {
+    "@supabase/auth-ui-react": "^0.4.7",
+    "@supabase/auth-ui-shared": "^0.1.8",
+    "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.45.0",
     "@vercel/blob": "^0.23.0",
     "lucide-react": "^0.390.0",

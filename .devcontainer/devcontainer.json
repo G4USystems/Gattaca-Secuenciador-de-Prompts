@@ -61,7 +61,8 @@
   "portsAttributes": {
     "3000": {
       "label": "Next.js Dev Server",
-      "onAutoForward": "notify"
+      "onAutoForward": "notify",
+      "protocol": "http"
     },
     "54321": {
       "label": "Supabase API",
