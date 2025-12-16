@@ -32,20 +32,16 @@ const LLM_MODELS: { value: string; label: string; provider: string; context: str
   { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro', provider: 'Google', context: '2M tokens', desc: 'Último modelo, máxima capacidad' },
   { value: 'gemini-2.5-pro-preview-06-05', label: 'Gemini 2.5 Pro', provider: 'Google', context: '1M tokens', desc: 'Excelente calidad' },
   { value: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash', provider: 'Google', context: '1M tokens', desc: 'Rápido y económico' },
-  // OpenAI (GPT-5 + GPT-4.1 series + reasoning)
-  { value: 'gpt-5', label: 'GPT-5', provider: 'OpenAI', context: '1M tokens', desc: 'Máxima inteligencia, razonamiento superior' },
-  { value: 'gpt-5.2', label: 'GPT-5.2', provider: 'OpenAI', context: '1M tokens', desc: 'Versión mejorada de GPT-5' },
-  { value: 'gpt-4.1', label: 'GPT-4.1', provider: 'OpenAI', context: '1M tokens', desc: 'Excelente para código y análisis' },
-  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', provider: 'OpenAI', context: '1M tokens', desc: 'Rápido, buena relación calidad/precio' },
-  { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano', provider: 'OpenAI', context: '1M tokens', desc: 'Ultra rápido, tareas simples' },
-  { value: 'gpt-4o', label: 'GPT-4o', provider: 'OpenAI', context: '128K tokens', desc: 'Multimodal, respuestas rápidas' },
+  // OpenAI - IDs reales
+  { value: 'gpt-4o', label: 'GPT-4o', provider: 'OpenAI', context: '128K tokens', desc: 'Más inteligente, multimodal' },
   { value: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'OpenAI', context: '128K tokens', desc: 'Económico, tareas ligeras' },
-  { value: 'o3', label: 'o3 (Reasoning)', provider: 'OpenAI', context: '200K tokens', desc: 'Razonamiento profundo, matemáticas' },
-  { value: 'o1', label: 'o1 (Reasoning)', provider: 'OpenAI', context: '200K tokens', desc: 'Pensamiento paso a paso' },
-  // Anthropic (Claude 4.5 series)
-  { value: 'claude-opus-4-5-20251101', label: 'Claude Opus 4.5', provider: 'Anthropic', context: '200K tokens', desc: 'Máxima calidad, análisis complejo' },
-  { value: 'claude-sonnet-4-5-20251101', label: 'Claude Sonnet 4.5', provider: 'Anthropic', context: '200K tokens', desc: 'Balance inteligencia/velocidad' },
-  { value: 'claude-haiku-4-5-20251101', label: 'Claude Haiku 4.5', provider: 'Anthropic', context: '200K tokens', desc: 'Ultra rápido y económico' },
+  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo', provider: 'OpenAI', context: '128K tokens', desc: 'Potente, buen contexto' },
+  { value: 'o1', label: 'o1 (Reasoning)', provider: 'OpenAI', context: '200K tokens', desc: 'Razonamiento profundo' },
+  { value: 'o1-mini', label: 'o1 Mini', provider: 'OpenAI', context: '128K tokens', desc: 'Razonamiento rápido' },
+  // Anthropic (Claude) - IDs reales
+  { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4', provider: 'Anthropic', context: '200K tokens', desc: 'Último modelo, excelente calidad' },
+  { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet', provider: 'Anthropic', context: '200K tokens', desc: 'Muy bueno, estable' },
+  { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', provider: 'Anthropic', context: '200K tokens', desc: 'Ultra rápido y económico' },
 ]
 
 export default function StepEditor({

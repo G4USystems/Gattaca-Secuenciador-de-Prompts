@@ -13,15 +13,14 @@ const LLM_MODELS = [
   { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro', provider: 'Google' },
   { value: 'gemini-2.5-pro-preview-06-05', label: 'Gemini 2.5 Pro', provider: 'Google' },
   { value: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash', provider: 'Google' },
-  { value: 'gpt-5', label: 'GPT-5', provider: 'OpenAI' },
-  { value: 'gpt-5.2', label: 'GPT-5.2', provider: 'OpenAI' },
-  { value: 'gpt-4.1', label: 'GPT-4.1', provider: 'OpenAI' },
   { value: 'gpt-4o', label: 'GPT-4o', provider: 'OpenAI' },
-  { value: 'o3', label: 'o3 (Reasoning)', provider: 'OpenAI' },
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'OpenAI' },
+  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo', provider: 'OpenAI' },
   { value: 'o1', label: 'o1 (Reasoning)', provider: 'OpenAI' },
-  { value: 'claude-opus-4-5-20251101', label: 'Claude Opus 4.5', provider: 'Anthropic' },
-  { value: 'claude-sonnet-4-5-20251101', label: 'Claude Sonnet 4.5', provider: 'Anthropic' },
-  { value: 'claude-haiku-4-5-20251101', label: 'Claude Haiku 4.5', provider: 'Anthropic' },
+  { value: 'o1-mini', label: 'o1 Mini', provider: 'OpenAI' },
+  { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4', provider: 'Anthropic' },
+  { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
+  { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', provider: 'Anthropic' },
 ]
 
 interface CampaignRunnerProps {
