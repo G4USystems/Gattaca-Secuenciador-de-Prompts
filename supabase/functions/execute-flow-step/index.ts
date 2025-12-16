@@ -425,7 +425,7 @@ serve(async (req) => {
     const promptWithFormat = finalPrompt + '\n\n' + formatInstructions
 
     // Call LLM with fallback support
-    const preferredModel = step_config.model || 'gemini-2.5-pro'
+    const preferredModel = step_config.model || 'gemini-2.5-flash'
     const temperature = step_config.temperature || 0.7
     const maxTokens = step_config.max_tokens || 8192
 
