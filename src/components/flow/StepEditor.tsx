@@ -611,7 +611,7 @@ export default function StepEditor({
                   </optgroup>
                 </select>
                 <p className="text-xs text-gray-500 mt-1.5">
-                  Si el modelo seleccionado falla, se usará automáticamente otro disponible (fallback)
+                  Si el modelo falla, podrás elegir otro para reintentar
                 </p>
               </div>
 
