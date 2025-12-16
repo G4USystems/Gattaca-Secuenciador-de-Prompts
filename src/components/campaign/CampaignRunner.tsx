@@ -8,19 +8,25 @@ import CampaignBulkUpload from './CampaignBulkUpload'
 import CampaignComparison from './CampaignComparison'
 import { FlowConfig, FlowStep, LLMModel } from '@/types/flow.types'
 
-// Modelos LLM disponibles para retry (IDs reales de las APIs)
+// Modelos LLM disponibles para retry
 const LLM_MODELS = [
+  // Gemini
   { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro', provider: 'Google' },
-  { value: 'gemini-2.5-pro-preview-06-05', label: 'Gemini 2.5 Pro', provider: 'Google' },
-  { value: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash', provider: 'Google' },
-  { value: 'gpt-4o', label: 'GPT-4o', provider: 'OpenAI' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'OpenAI' },
-  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo', provider: 'OpenAI' },
-  { value: 'o1', label: 'o1 (Reasoning)', provider: 'OpenAI' },
-  { value: 'o1-mini', label: 'o1 Mini', provider: 'OpenAI' },
-  { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4', provider: 'Anthropic' },
-  { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
-  { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', provider: 'Anthropic' },
+  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', provider: 'Google' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'Google' },
+  // OpenAI GPT-5 Series
+  { value: 'gpt-5.2', label: 'GPT-5.2', provider: 'OpenAI' },
+  { value: 'gpt-5', label: 'GPT-5', provider: 'OpenAI' },
+  { value: 'gpt-5-mini', label: 'GPT-5 Mini', provider: 'OpenAI' },
+  { value: 'gpt-5-nano', label: 'GPT-5 Nano', provider: 'OpenAI' },
+  // OpenAI o-series
+  { value: 'o4-mini', label: 'o4 Mini', provider: 'OpenAI' },
+  { value: 'o3-pro', label: 'o3 Pro', provider: 'OpenAI' },
+  { value: 'o3-mini', label: 'o3 Mini', provider: 'OpenAI' },
+  // Anthropic Claude 4.5
+  { value: 'claude-4.5-opus', label: 'Claude 4.5 Opus', provider: 'Anthropic' },
+  { value: 'claude-4.5-sonnet', label: 'Claude 4.5 Sonnet', provider: 'Anthropic' },
+  { value: 'claude-4.5-haiku', label: 'Claude 4.5 Haiku', provider: 'Anthropic' },
 ]
 
 interface CampaignRunnerProps {

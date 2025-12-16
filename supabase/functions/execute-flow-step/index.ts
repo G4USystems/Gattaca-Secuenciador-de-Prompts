@@ -85,7 +85,7 @@ async function callOpenAI(
   temperature: number,
   maxTokens: number
 ): Promise<LLMResponse> {
-  const isReasoningModel = model.startsWith('o1') || model.startsWith('o3')
+  const isReasoningModel = model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')
 
   const messages = isReasoningModel
     ? [

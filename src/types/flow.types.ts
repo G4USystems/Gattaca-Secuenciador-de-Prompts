@@ -14,10 +14,10 @@ export type OutputFormat = 'text' | 'markdown' | 'json' | 'csv' | 'html' | 'xml'
 // Proveedores LLM soportados
 export type LLMProvider = 'gemini' | 'openai' | 'anthropic' | 'groq'
 
-// Modelos disponibles por proveedor (IDs reales de las APIs)
-export type GeminiModel = 'gemini-3-pro-preview' | 'gemini-2.5-pro-preview-06-05' | 'gemini-2.5-flash-preview-05-20'
-export type OpenAIModel = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4-turbo' | 'o1' | 'o1-mini'
-export type AnthropicModel = 'claude-sonnet-4-20250514' | 'claude-3-5-sonnet-20241022' | 'claude-3-5-haiku-20241022'
+// Modelos disponibles por proveedor
+export type GeminiModel = 'gemini-3-pro-preview' | 'gemini-2.5-pro' | 'gemini-2.5-flash'
+export type OpenAIModel = 'gpt-5.2' | 'gpt-5' | 'gpt-5-mini' | 'gpt-5-nano' | 'o4-mini' | 'o3-pro' | 'o3-mini'
+export type AnthropicModel = 'claude-4.5-opus' | 'claude-4.5-sonnet' | 'claude-4.5-haiku'
 export type GroqModel = 'llama-3.3-70b-versatile' | 'llama-3.1-8b-instant' | 'mixtral-8x7b-32768'
 
 export type LLMModel = GeminiModel | OpenAIModel | AnthropicModel | GroqModel
