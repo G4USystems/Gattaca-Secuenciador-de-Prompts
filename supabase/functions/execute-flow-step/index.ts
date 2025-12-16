@@ -14,9 +14,9 @@ const TOKEN_LIMIT = 2_000_000
 type OutputFormat = 'text' | 'markdown' | 'json' | 'csv' | 'html' | 'xml'
 
 // Modelos de fallback (orden de prioridad)
-// Claude tiene mejor manejo de contextos largos (200K tokens)
 const FALLBACK_MODELS = [
-  { provider: 'gemini', model: 'gemini-2.5-pro' },  // 2M context
+  { provider: 'gemini', model: 'gemini-2.5-flash' },  // 1M context - menos sobrecargado
+  { provider: 'gemini', model: 'gemini-2.5-pro' },    // 2M context - backup
   { provider: 'anthropic', model: 'claude-sonnet-4-20250514' },  // 200K context
   { provider: 'openai', model: 'gpt-4o' },  // 128K context
 ]
