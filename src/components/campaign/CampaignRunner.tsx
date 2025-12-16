@@ -11,18 +11,26 @@ import { FlowConfig, FlowStep, LLMModel } from '@/types/flow.types'
 // Modelos LLM disponibles para retry
 const LLM_MODELS = [
   // Gemini
-  { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro', provider: 'Google' },
+  { value: 'gemini-3.0-pro-preview', label: 'Gemini 3.0 Pro', provider: 'Google' },
   { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', provider: 'Google' },
   { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'Google' },
+  { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', provider: 'Google' },
   // OpenAI GPT-5 Series
   { value: 'gpt-5.2', label: 'GPT-5.2', provider: 'OpenAI' },
   { value: 'gpt-5', label: 'GPT-5', provider: 'OpenAI' },
   { value: 'gpt-5-mini', label: 'GPT-5 Mini', provider: 'OpenAI' },
-  { value: 'gpt-5-nano', label: 'GPT-5 Nano', provider: 'OpenAI' },
+  // OpenAI GPT-4 Series
+  { value: 'gpt-4.1', label: 'GPT-4.1', provider: 'OpenAI' },
+  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', provider: 'OpenAI' },
+  { value: 'gpt-4o', label: 'GPT-4o', provider: 'OpenAI' },
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'OpenAI' },
   // OpenAI o-series
   { value: 'o4-mini', label: 'o4 Mini', provider: 'OpenAI' },
   { value: 'o3-pro', label: 'o3 Pro', provider: 'OpenAI' },
+  { value: 'o3', label: 'o3', provider: 'OpenAI' },
   { value: 'o3-mini', label: 'o3 Mini', provider: 'OpenAI' },
+  { value: 'o1', label: 'o1', provider: 'OpenAI' },
+  { value: 'o1-mini', label: 'o1 Mini', provider: 'OpenAI' },
   // Anthropic Claude 4.5
   { value: 'claude-4.5-opus', label: 'Claude 4.5 Opus', provider: 'Anthropic' },
   { value: 'claude-4.5-sonnet', label: 'Claude 4.5 Sonnet', provider: 'Anthropic' },

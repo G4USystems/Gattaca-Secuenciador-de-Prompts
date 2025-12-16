@@ -29,18 +29,26 @@ const OUTPUT_FORMATS: { value: OutputFormat; label: string; description: string 
 // Modelos LLM disponibles organizados por proveedor (actualizados Dic 2025)
 const LLM_MODELS: { value: string; label: string; provider: string; context: string; desc: string }[] = [
   // Gemini (Google)
-  { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro', provider: 'Google', context: '2M tokens', desc: 'Último modelo, máxima capacidad' },
+  { value: 'gemini-3.0-pro-preview', label: 'Gemini 3.0 Pro', provider: 'Google', context: '2M tokens', desc: 'Último modelo, máxima capacidad' },
   { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', provider: 'Google', context: '1M tokens', desc: 'Excelente calidad, estable' },
   { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'Google', context: '1M tokens', desc: 'Rápido y económico' },
+  { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', provider: 'Google', context: '1M tokens', desc: 'Ultra ligero' },
   // OpenAI - GPT-5 Series
   { value: 'gpt-5.2', label: 'GPT-5.2', provider: 'OpenAI', context: '256K tokens', desc: 'Última iteración, más avanzado' },
   { value: 'gpt-5', label: 'GPT-5', provider: 'OpenAI', context: '256K tokens', desc: 'Modelo principal, alta calidad' },
   { value: 'gpt-5-mini', label: 'GPT-5 Mini', provider: 'OpenAI', context: '128K tokens', desc: 'Equilibrio calidad/costo' },
-  { value: 'gpt-5-nano', label: 'GPT-5 Nano', provider: 'OpenAI', context: '64K tokens', desc: 'Ultra rápido y económico' },
+  // OpenAI - GPT-4 Series
+  { value: 'gpt-4.1', label: 'GPT-4.1', provider: 'OpenAI', context: '128K tokens', desc: 'Estable, muy confiable' },
+  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', provider: 'OpenAI', context: '128K tokens', desc: 'Económico y rápido' },
+  { value: 'gpt-4o', label: 'GPT-4o', provider: 'OpenAI', context: '128K tokens', desc: 'Multimodal, versátil' },
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'OpenAI', context: '128K tokens', desc: 'Multimodal económico' },
   // OpenAI - o-series (Razonamiento)
-  { value: 'o4-mini', label: 'o4 Mini', provider: 'OpenAI', context: '200K tokens', desc: 'Razonamiento avanzado, eficiente' },
+  { value: 'o4-mini', label: 'o4 Mini', provider: 'OpenAI', context: '200K tokens', desc: 'Razonamiento avanzado' },
   { value: 'o3-pro', label: 'o3 Pro', provider: 'OpenAI', context: '200K tokens', desc: 'Razonamiento profundo' },
+  { value: 'o3', label: 'o3', provider: 'OpenAI', context: '200K tokens', desc: 'Razonamiento estándar' },
   { value: 'o3-mini', label: 'o3 Mini', provider: 'OpenAI', context: '128K tokens', desc: 'Razonamiento rápido' },
+  { value: 'o1', label: 'o1', provider: 'OpenAI', context: '200K tokens', desc: 'Razonamiento original' },
+  { value: 'o1-mini', label: 'o1 Mini', provider: 'OpenAI', context: '128K tokens', desc: 'Razonamiento ligero' },
   // Anthropic (Claude 4.5)
   { value: 'claude-4.5-opus', label: 'Claude 4.5 Opus', provider: 'Anthropic', context: '200K tokens', desc: 'Máxima calidad, tareas complejas' },
   { value: 'claude-4.5-sonnet', label: 'Claude 4.5 Sonnet', provider: 'Anthropic', context: '200K tokens', desc: 'Equilibrio rendimiento/costo' },
