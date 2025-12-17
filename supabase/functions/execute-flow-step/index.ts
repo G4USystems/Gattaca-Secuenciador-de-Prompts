@@ -13,13 +13,7 @@ const TOKEN_LIMIT = 2_000_000
 
 type OutputFormat = 'text' | 'markdown' | 'json' | 'csv' | 'html' | 'xml'
 
-// Modelos de fallback (orden de prioridad)
-const FALLBACK_MODELS = [
-  { provider: 'gemini', model: 'gemini-2.5-flash' },  // 1M context - menos sobrecargado
-  { provider: 'gemini', model: 'gemini-2.5-pro' },    // 2M context - backup
-  { provider: 'anthropic', model: 'claude-sonnet-4-20250514' },  // 200K context
-  { provider: 'openai', model: 'gpt-4o' },  // 128K context
-]
+// NOTA: Fallback automático desactivado - el usuario elige manualmente si reintentar con otro modelo
 
 interface LLMResponse {
   text: string
@@ -91,7 +85,7 @@ async function callOpenAI(
   temperature: number,
   maxTokens: number
 ): Promise<LLMResponse> {
-  const isReasoningModel = model.startsWith('o1') || model.startsWith('o3')
+  const isReasoningModel = model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')
 
   const messages = isReasoningModel
     ? [
@@ -193,56 +187,48 @@ async function callAnthropic(
   }
 }
 
-// Ejecutar con fallback
-async function executeWithFallback(
+// Ejecutar modelo (SIN fallback automático - el usuario elige si reintentar)
+async function executeModel(
   systemPrompt: string,
   context: string,
   userPrompt: string,
   temperature: number,
   maxTokens: number,
-  preferredModel?: string
+  preferredModel: string
 ): Promise<LLMResponse> {
   const geminiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY')
   const openaiKey = Deno.env.get('OPENAI_API_KEY')
-  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
+  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY') || Deno.env.get('ANTHROPIC_KEY')
 
-  const errors: string[] = []
+  const provider = getProvider(preferredModel)
+  console.log(`Executing with ${provider}/${preferredModel}...`)
 
-  // Construir lista de modelos a intentar
-  const modelsToTry = preferredModel
-    ? [{ provider: getProvider(preferredModel), model: preferredModel }, ...FALLBACK_MODELS]
-    : FALLBACK_MODELS
-
-  for (const { provider, model } of modelsToTry) {
-    try {
-      console.log(`Trying ${provider}/${model}...`)
-
-      if (provider === 'gemini' && geminiKey) {
-        return await callGemini(geminiKey, model, systemPrompt, context, userPrompt, temperature, maxTokens)
-      } else if (provider === 'openai' && openaiKey) {
-        return await callOpenAI(openaiKey, model, systemPrompt, context, userPrompt, temperature, maxTokens)
-      } else if (provider === 'anthropic' && anthropicKey) {
-        return await callAnthropic(anthropicKey, model, systemPrompt, context, userPrompt, temperature, maxTokens)
-      } else {
-        console.log(`Skipping ${provider}/${model} - no API key`)
-        continue
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      console.error(`${provider}/${model} failed:`, errorMsg)
-      errors.push(`${provider}/${model}: ${errorMsg}`)
-
-      // Continuar al siguiente modelo
-      continue
-    }
+  // Verificar que tenemos la API key necesaria
+  if (provider === 'gemini' && !geminiKey) {
+    throw new Error(`No API key configured for Gemini. Please add GEMINI_API_KEY.`)
+  }
+  if (provider === 'openai' && !openaiKey) {
+    throw new Error(`No API key configured for OpenAI. Please add OPENAI_API_KEY.`)
+  }
+  if (provider === 'anthropic' && !anthropicKey) {
+    throw new Error(`No API key configured for Anthropic. Please add ANTHROPIC_API_KEY.`)
   }
 
-  throw new Error(`All models failed:\n${errors.join('\n')}`)
+  // Ejecutar el modelo seleccionado (sin fallback)
+  if (provider === 'gemini') {
+    return await callGemini(geminiKey!, preferredModel, systemPrompt, context, userPrompt, temperature, maxTokens)
+  } else if (provider === 'openai') {
+    return await callOpenAI(openaiKey!, preferredModel, systemPrompt, context, userPrompt, temperature, maxTokens)
+  } else if (provider === 'anthropic') {
+    return await callAnthropic(anthropicKey!, preferredModel, systemPrompt, context, userPrompt, temperature, maxTokens)
+  }
+
+  throw new Error(`Unknown provider for model: ${preferredModel}`)
 }
 
 function getProvider(model: string): string {
   if (model.startsWith('gemini')) return 'gemini'
-  if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3')) return 'openai'
+  if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) return 'openai'
   if (model.startsWith('claude')) return 'anthropic'
   if (model.startsWith('llama') || model.startsWith('mixtral')) return 'groq'
   return 'gemini' // default
@@ -303,8 +289,20 @@ serve(async (req) => {
     })
   }
 
+  // Parsear body una sola vez al inicio
+  let requestBody: RequestPayload
   try {
-    const { campaign_id, step_config } = await req.json() as RequestPayload
+    requestBody = await req.json() as RequestPayload
+  } catch (parseError) {
+    return new Response(
+      JSON.stringify({ error: 'Invalid JSON body' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
+  const { campaign_id, step_config } = requestBody
+
+  try {
 
     if (!campaign_id || !step_config) {
       return new Response(
@@ -424,14 +422,14 @@ serve(async (req) => {
     const formatInstructions = getFormatInstructions(outputFormat)
     const promptWithFormat = finalPrompt + '\n\n' + formatInstructions
 
-    // Call LLM with fallback support
+    // Call LLM (sin fallback automático - el usuario elige reintentar con otro modelo)
     const preferredModel = step_config.model || 'gemini-2.5-flash'
     const temperature = step_config.temperature || 0.7
     const maxTokens = step_config.max_tokens || 8192
 
-    console.log(`Executing step "${step_config.name}" with preferred model: ${preferredModel}`)
+    console.log(`Executing step "${step_config.name}" with model: ${preferredModel}`)
 
-    const llmResponse = await executeWithFallback(
+    const llmResponse = await executeModel(
       SYSTEM_INSTRUCTION,
       contextString,
       promptWithFormat,
@@ -493,8 +491,16 @@ serve(async (req) => {
     )
   } catch (error) {
     console.error('Edge function error:', error)
+
+    // Usar step_config del body ya parseado
+    const failedModel = step_config?.model || 'gemini-2.5-flash'
+
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({
+        error: error.message,
+        failed_model: failedModel,
+        can_retry: true,  // Indica al frontend que puede reintentar con otro modelo
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
