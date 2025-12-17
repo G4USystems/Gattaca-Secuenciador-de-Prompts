@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase-server'
 
 export const runtime = 'nodejs'
 export const maxDuration = 10
@@ -21,17 +21,18 @@ export async function GET(
       )
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const supabase = await createClient()
 
+    // Check authentication
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // RLS automatically filters by user_id
     const { data: project, error } = await supabase
       .from('projects')
       .select('id, name, variable_definitions, flow_config, deep_research_prompts, campaign_docs_guide')
@@ -77,17 +78,18 @@ export async function PATCH(
       )
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const supabase = await createClient()
 
+    // Check authentication
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // RLS automatically ensures user can only update their own projects
     const { data: project, error } = await supabase
       .from('projects')
       .update(body)
@@ -133,18 +135,19 @@ export async function DELETE(
       )
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const supabase = await createClient()
 
-    // Delete project (this will cascade delete campaigns and documents due to foreign key constraints)
+    // Check authentication
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Delete project (RLS ensures user can only delete their own projects)
+    // This will cascade delete campaigns and documents due to foreign key constraints
     const { error } = await supabase
       .from('projects')
       .delete()
