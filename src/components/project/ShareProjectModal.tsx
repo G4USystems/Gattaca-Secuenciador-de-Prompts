@@ -7,7 +7,7 @@ import { useToast, useModal } from '@/components/ui'
 interface ShareProjectModalProps {
   projectId: string
   projectName: string
-  onClose: () => void
+  onClose?: () => void
 }
 
 type TabType = 'invite' | 'link' | 'members'
@@ -51,6 +51,10 @@ const ROLE_DESCRIPTIONS = {
 export default function ShareProjectModal({ projectId, projectName, onClose }: ShareProjectModalProps) {
   const toast = useToast()
   const modal = useModal()
+
+  const handleClose = () => {
+    onClose?.()
+  }
 
   const [activeTab, setActiveTab] = useState<TabType>('members')
   const [loading, setLoading] = useState(false)
@@ -307,7 +311,7 @@ export default function ShareProjectModal({ projectId, projectName, onClose }: S
             <p className="text-sm text-gray-600 mt-1">{projectName}</p>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <X className="w-5 h-5 text-gray-500" />
@@ -634,7 +638,9 @@ export default function ShareProjectModal({ projectId, projectName, onClose }: S
                         <p className="text-sm font-medium text-gray-900 flex items-center gap-2">
                           {member.email || 'Usuario'}
                           {member.role === 'owner' && (
-                            <Crown className="w-4 h-4 text-yellow-600" title="Propietario" />
+                            <span title="Propietario">
+                              <Crown className="w-4 h-4 text-yellow-600" />
+                            </span>
                           )}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
@@ -649,7 +655,7 @@ export default function ShareProjectModal({ projectId, projectName, onClose }: S
                         {member.role !== 'owner' && (
                           <>
                             <button
-                              onClick={() => handleTransferOwnership(member.user_id, member.email)}
+                              onClick={() => handleTransferOwnership(member.user_id, member.email || 'Usuario')}
                               className="p-2 hover:bg-yellow-100 rounded transition-colors"
                               title="Transferir propiedad del proyecto"
                             >
