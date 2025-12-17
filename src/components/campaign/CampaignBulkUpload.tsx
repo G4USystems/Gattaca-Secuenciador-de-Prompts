@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { Upload, FileSpreadsheet, X, AlertCircle, CheckCircle, Download, Trash2, ArrowRight, RefreshCw } from 'lucide-react'
+import { useToast } from '@/components/ui'
 
 interface CampaignRow {
   ecp_name: string
@@ -36,6 +37,8 @@ export default function CampaignBulkUpload({
   onClose,
   onSuccess
 }: CampaignBulkUploadProps) {
+  const toast = useToast()
+
   const [step, setStep] = useState<Step>('upload')
   const [rawCsvData, setRawCsvData] = useState<RawCsvData | null>(null)
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({}) // projectVar -> csvColumn
@@ -314,19 +317,19 @@ export default function CampaignBulkUpload({
       const data = await response.json()
 
       if (data.success) {
-        alert(`✅ ${data.count} campañas creadas exitosamente`)
+        toast.success('Campañas creadas', `${data.count} campañas creadas exitosamente`)
         onSuccess()
         onClose()
       } else {
         let errorMsg = data.error || 'Error al crear campañas'
         if (data.details) errorMsg += `: ${data.details}`
         setErrors([errorMsg])
-        alert(`❌ Error: ${errorMsg}`)
+        toast.error('Error', errorMsg)
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
       setErrors([errorMsg])
-      alert(`❌ Error de red: ${errorMsg}`)
+      toast.error('Error de red', errorMsg)
     } finally {
       setCreating(false)
     }

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
+import { UIProviders } from '@/components/ui'
 import Header from '@/components/Header'
 
 export const metadata: Metadata = {
@@ -28,12 +29,14 @@ export default function RootLayout({
     <html lang="es">
       <body>
         <AuthProvider>
-          <div className="min-h-screen flex flex-col">
-            <Header />
-            <div className="flex-1">
-              {children}
+          <UIProviders>
+            <div className="min-h-screen flex flex-col">
+              <Header />
+              <div className="flex-1">
+                {children}
+              </div>
             </div>
-          </div>
+          </UIProviders>
         </AuthProvider>
       </body>
     </html>

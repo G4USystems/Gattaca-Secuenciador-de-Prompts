@@ -7,6 +7,7 @@ import StepOutputEditor from './StepOutputEditor'
 import CampaignBulkUpload from './CampaignBulkUpload'
 import CampaignComparison from './CampaignComparison'
 import { FlowConfig, FlowStep, LLMModel } from '@/types/flow.types'
+import { useToast, useModal } from '@/components/ui'
 
 // Modelos LLM disponibles para retry
 const LLM_MODELS = [
@@ -95,6 +96,9 @@ interface CampaignDocument {
 }
 
 export default function CampaignRunner({ projectId, project: projectProp }: CampaignRunnerProps) {
+  const toast = useToast()
+  const modal = useModal()
+
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [project, setProject] = useState<Project | null>(projectProp || null)
   const [loading, setLoading] = useState(true)
@@ -219,7 +223,7 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
       }
     } catch (error) {
       console.error('Error saving variables:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error', error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setSavingVariables(false)
     }
@@ -229,7 +233,7 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
   const handleExportPrompts = (format: 'json' | 'markdown') => {
     const flowConfig = project?.flow_config
     if (!flowConfig?.steps?.length) {
-      alert('No hay pasos configurados para exportar')
+      toast.warning('Sin pasos', 'No hay pasos configurados para exportar')
       return
     }
 
@@ -415,7 +419,7 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
         .map(v => v.name)
 
       if (missingRequired.length > 0) {
-        alert(`Por favor completa los campos requeridos: ${missingRequired.join(', ')}`)
+        toast.warning('Campos requeridos', `Por favor completa: ${missingRequired.join(', ')}`)
         return
       }
     }
@@ -446,7 +450,7 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
       const data = await response.json()
 
       if (data.success) {
-        alert(isEditing ? 'Campaña actualizada exitosamente' : 'Campaña creada exitosamente')
+        toast.success('Éxito', isEditing ? 'Campaña actualizada exitosamente' : 'Campaña creada exitosamente')
         setShowNewForm(false)
         setCustomVariables([])
         setEditingCampaignId(null)
@@ -454,13 +458,13 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
       } else {
         let errorMsg = data.error || 'Failed to create campaign'
         if (data.details) {
-          errorMsg += `\n\nDetails: ${data.details}`
+          errorMsg += ` - ${data.details}`
         }
         throw new Error(errorMsg)
       }
     } catch (error) {
       console.error('Error creating campaign:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error', error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setCreating(false)
     }
@@ -473,7 +477,7 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
 
   const handleSaveCampaignName = async (campaignId: string) => {
     if (!editingNameValue.trim()) {
-      alert('El nombre no puede estar vacío')
+      toast.warning('Nombre requerido', 'El nombre no puede estar vacío')
       return
     }
 
@@ -497,7 +501,7 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
       }
     } catch (error) {
       console.error('Error updating campaign name:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error', error instanceof Error ? error.message : 'Error desconocido')
     }
   }
 
@@ -507,9 +511,14 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
   }
 
   const handleDeleteCampaign = async (campaignId: string, campaignName: string) => {
-    if (!confirm(`¿Eliminar "${campaignName}"? Esta acción no se puede deshacer.`)) {
-      return
-    }
+    const confirmed = await modal.confirm({
+      title: 'Eliminar campaña',
+      message: `¿Eliminar "${campaignName}"? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'danger',
+    })
+    if (!confirmed) return
 
     try {
       const response = await fetch(`/api/campaign/${campaignId}`, {
@@ -519,13 +528,14 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
       const data = await response.json()
 
       if (data.success) {
+        toast.success('Eliminada', 'Campaña eliminada exitosamente')
         loadCampaigns()
       } else {
         throw new Error(data.error || 'Failed to delete')
       }
     } catch (error) {
       console.error('Error deleting campaign:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error', error instanceof Error ? error.message : 'Error desconocido')
     }
   }
 
@@ -556,21 +566,26 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
       const data = await response.json()
 
       if (data.success) {
-        alert(`Campaña duplicada como "${newName}"`)
+        toast.success('Duplicada', `Campaña duplicada como "${newName}"`)
         loadCampaigns()
       } else {
         throw new Error(data.error || 'Failed to duplicate campaign')
       }
     } catch (error) {
       console.error('Error duplicating campaign:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error', error instanceof Error ? error.message : 'Error desconocido')
     }
   }
 
   const handleRunCampaign = async (campaignId: string) => {
-    if (!confirm('¿Ejecutar esta campaña? Esto puede tomar varios minutos.')) {
-      return
-    }
+    const confirmed = await modal.confirm({
+      title: 'Ejecutar campaña',
+      message: '¿Ejecutar esta campaña? Esto puede tomar varios minutos.',
+      confirmText: 'Ejecutar',
+      cancelText: 'Cancelar',
+      variant: 'info',
+    })
+    if (!confirmed) return
 
     setRunning(campaignId)
     try {
@@ -585,17 +600,17 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
       const data = await response.json()
 
       if (data.success) {
-        alert(`Campaña completada. ${data.steps_completed} pasos en ${(data.duration_ms / 1000).toFixed(1)}s`)
+        toast.success('Campaña completada', `${data.steps_completed} pasos en ${(data.duration_ms / 1000).toFixed(1)}s`)
       } else {
         let errorMsg = data.error || 'Execution failed'
         if (data.details) {
-          errorMsg += `\n\nDetalles: ${data.details}`
+          errorMsg += ` - ${data.details}`
         }
-        alert(`Error: ${errorMsg}`)
+        toast.error('Error de ejecución', errorMsg)
       }
     } catch (error) {
       console.error('Error running campaign:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error', error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setRunning(null)
       loadCampaigns()
@@ -603,9 +618,14 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
   }
 
   const handleResetCampaignStatus = async (campaignId: string) => {
-    if (!confirm('¿Resetear el estado a "draft"? No se borrarán los resultados.')) {
-      return
-    }
+    const confirmed = await modal.confirm({
+      title: 'Resetear campaña',
+      message: '¿Resetear el estado a "draft"? No se borrarán los resultados.',
+      confirmText: 'Resetear',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    })
+    if (!confirmed) return
 
     try {
       const response = await fetch(`/api/campaign/${campaignId}`, {
@@ -622,20 +642,28 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
       const data = await response.json()
 
       if (data.success) {
+        toast.success('Reseteada', 'Campaña reseteada a estado draft')
         loadCampaigns()
       } else {
         throw new Error(data.error || 'Failed to reset')
       }
     } catch (error) {
       console.error('Error resetting campaign status:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error', error instanceof Error ? error.message : 'Error desconocido')
     }
   }
 
   const handleRunStep = async (campaignId: string, stepId: string, stepName: string, overrideModel?: string) => {
     // Solo confirmar si no es un retry
-    if (!overrideModel && !confirm(`¿Ejecutar "${stepName}"? Puede tomar algunos minutos.`)) {
-      return
+    if (!overrideModel) {
+      const confirmed = await modal.confirm({
+        title: 'Ejecutar paso',
+        message: `¿Ejecutar "${stepName}"? Puede tomar algunos minutos.`,
+        confirmText: 'Ejecutar',
+        cancelText: 'Cancelar',
+        variant: 'info',
+      })
+      if (!confirmed) return
     }
 
     setRunningStep({ campaignId, stepId })
@@ -653,7 +681,7 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
       const data = await response.json()
 
       if (data.success) {
-        alert(`"${stepName}" completado en ${(data.duration_ms / 1000).toFixed(1)}s\nModelo: ${data.model_used || 'N/A'}`)
+        toast.success('Paso completado', `"${stepName}" en ${(data.duration_ms / 1000).toFixed(1)}s - Modelo: ${data.model_used || 'N/A'}`)
       } else {
         // Si el error permite retry, mostrar diálogo
         if (data.can_retry && data.failed_model) {
@@ -673,14 +701,14 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
         } else {
           let errorMsg = data.error || 'Execution failed'
           if (data.details) {
-            errorMsg += `\n\nDetalles: ${data.details}`
+            errorMsg += ` - ${data.details}`
           }
-          alert(`Error: ${errorMsg}`)
+          toast.error('Error de ejecución', errorMsg)
         }
       }
     } catch (error) {
       console.error('Error running step:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error', error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setRunningStep(null)
       loadCampaigns()
@@ -820,7 +848,7 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
       setTimeout(() => setCopiedPromptId(null), 2000)
     } catch (error) {
       console.error('Error copying to clipboard:', error)
-      alert('No se pudo copiar al portapapeles')
+      toast.error('Error', 'No se pudo copiar al portapapeles')
     }
   }
 
@@ -828,7 +856,7 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
   const copyAllPromptsAsMarkdown = async (campaign: Campaign) => {
     const flowConfig = campaign.flow_config || project?.flow_config
     if (!flowConfig?.steps) {
-      alert('No hay pasos configurados en esta campaña')
+      toast.warning('Sin pasos', 'No hay pasos configurados en esta campaña')
       return
     }
 
@@ -863,9 +891,10 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
       await navigator.clipboard.writeText(markdown)
       setCopiedPromptId(`all-${campaign.id}`)
       setTimeout(() => setCopiedPromptId(null), 2000)
+      toast.success('Copiado', 'Prompts copiados al portapapeles')
     } catch (error) {
       console.error('Error copying to clipboard:', error)
-      alert('No se pudo copiar al portapapeles')
+      toast.error('Error', 'No se pudo copiar al portapapeles')
     }
   }
 

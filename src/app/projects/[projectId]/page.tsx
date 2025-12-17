@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { FileText, Rocket, Workflow, Sliders, Edit2, Check, X, Trash2, ChevronRight, Home, FolderOpen, Calendar, MoreVertical, Share2 } from 'lucide-react'
+import { useToast, useModal } from '@/components/ui'
 import { useProject } from '@/hooks/useProjects'
 import { useDocuments, deleteDocument } from '@/hooks/useDocuments'
 import DocumentUpload from '@/components/documents/DocumentUpload'
@@ -59,6 +60,9 @@ export default function ProjectPage({
   params: { projectId: string }
 }) {
   const router = useRouter()
+  const toast = useToast()
+  const modal = useModal()
+
   const [activeTab, setActiveTab] = useState<TabType>('documents')
   const { project, userRole, loading: projectLoading, error: projectError } = useProject(params.projectId)
   const { documents, loading: docsLoading, reload: reloadDocs } = useDocuments(params.projectId)
@@ -111,7 +115,7 @@ export default function ProjectPage({
 
   const handleSaveProjectName = async () => {
     if (!projectName.trim()) {
-      alert('Project name cannot be empty')
+      toast.warning('Nombre requerido', 'El nombre del proyecto no puede estar vacío')
       return
     }
 
@@ -128,6 +132,7 @@ export default function ProjectPage({
       const data = await response.json()
 
       if (data.success) {
+        toast.success('Guardado', 'Nombre del proyecto actualizado')
         setEditingProjectName(false)
         window.location.reload()
       } else {
@@ -135,7 +140,7 @@ export default function ProjectPage({
       }
     } catch (error) {
       console.error('Error updating project name:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error', error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setSavingProjectName(false)
     }
@@ -147,9 +152,14 @@ export default function ProjectPage({
   }
 
   const handleDeleteProject = async () => {
-    if (!confirm(`¿Estás seguro de que quieres eliminar el proyecto "${project?.name}"? Esta acción eliminará todos los documentos, campañas y configuraciones. Esta acción no se puede deshacer.`)) {
-      return
-    }
+    const confirmed = await modal.confirm({
+      title: 'Eliminar proyecto',
+      message: `¿Estás seguro de que quieres eliminar "${project?.name}"? Se eliminarán todos los documentos, campañas y configuraciones. Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'danger',
+    })
+    if (!confirmed) return
 
     try {
       const response = await fetch(`/api/projects/${params.projectId}`, {
@@ -159,13 +169,14 @@ export default function ProjectPage({
       const data = await response.json()
 
       if (data.success) {
+        toast.success('Eliminado', 'Proyecto eliminado exitosamente')
         router.push('/')
       } else {
         throw new Error(data.error || 'Failed to delete')
       }
     } catch (error) {
       console.error('Error deleting project:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error', error instanceof Error ? error.message : 'Error desconocido')
     }
   }
 
@@ -420,6 +431,7 @@ function DocumentsTab({
   onReload: () => void
   totalTokens: number
 }) {
+  const toast = useToast()
   const [viewingDoc, setViewingDoc] = useState<any | null>(null)
   const [showGuide, setShowGuide] = useState(true)
   const [campaigns, setCampaigns] = useState<Array<{ id: string; ecp_name: string }>>([])
@@ -443,9 +455,10 @@ function DocumentsTab({
   const handleDelete = async (docId: string) => {
     try {
       await deleteDocument(docId)
+      toast.success('Eliminado', 'Documento eliminado exitosamente')
       onReload()
     } catch (error) {
-      alert(`Error al eliminar: ${error instanceof Error ? error.message : 'Unknown'}`)
+      toast.error('Error al eliminar', error instanceof Error ? error.message : 'Error desconocido')
     }
   }
 
@@ -460,16 +473,15 @@ function DocumentsTab({
       })
       const data = await response.json()
       if (data.success) {
+        toast.success('Asignado', 'Documento asignado correctamente')
         onReload()
       } else {
         let errorMsg = data.error || 'Failed to update'
-        if (data.details) errorMsg += `\n\nDetalles: ${data.details}`
-        if (data.hint) errorMsg += `\n\nSugerencia: ${data.hint}`
-        if (data.code) errorMsg += `\n\nCódigo: ${data.code}`
+        if (data.details) errorMsg += ` - ${data.details}`
         throw new Error(errorMsg)
       }
     } catch (error) {
-      alert(`Error al asignar documento: ${error instanceof Error ? error.message : 'Unknown'}`)
+      toast.error('Error al asignar', error instanceof Error ? error.message : 'Error desconocido')
     }
   }
 

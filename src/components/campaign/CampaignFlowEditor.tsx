@@ -5,6 +5,7 @@ import { Save, Edit, FileText, ArrowRight, X, Trash2, Plus, Workflow, ChevronDow
 import { FlowStep, FlowConfig } from '@/types/flow.types'
 import { DEFAULT_FLOW_CONFIG } from '@/lib/defaultFlowConfig'
 import StepEditor from '../flow/StepEditor'
+import { useToast, useModal } from '@/components/ui'
 
 interface CampaignFlowEditorProps {
   campaignId: string
@@ -25,6 +26,9 @@ export default function CampaignFlowEditor({
   onClose,
   onSave,
 }: CampaignFlowEditorProps) {
+  const toast = useToast()
+  const modal = useModal()
+
   // If no flow config provided, use default
   const [flowConfig, setFlowConfig] = useState<FlowConfig>(initialFlowConfig || DEFAULT_FLOW_CONFIG)
   const [saving, setSaving] = useState(false)
@@ -74,7 +78,7 @@ export default function CampaignFlowEditor({
       }
     } catch (error) {
       console.error('Error saving campaign flow config:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error', error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setSaving(false)
     }
@@ -90,15 +94,21 @@ export default function CampaignFlowEditor({
     setEditingStep(null)
   }
 
-  const handleDeleteStep = (stepId: string, stepName: string) => {
-    if (!confirm(`¿Estás seguro de que quieres eliminar el paso "${stepName}"? Esta acción no se puede deshacer.`)) {
-      return
-    }
+  const handleDeleteStep = async (stepId: string, stepName: string) => {
+    const confirmed = await modal.confirm({
+      title: 'Eliminar paso',
+      message: `¿Estás seguro de que quieres eliminar el paso "${stepName}"? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'danger',
+    })
+    if (!confirmed) return
 
     setFlowConfig((prev) => ({
       ...prev,
       steps: prev.steps.filter((step) => step.id !== stepId),
     }))
+    toast.success('Eliminado', `Paso "${stepName}" eliminado`)
   }
 
   const handleAddStep = () => {

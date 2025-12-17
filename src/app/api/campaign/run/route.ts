@@ -167,7 +167,8 @@ export async function POST(request: NextRequest) {
     // Update campaign status to error if we have the campaignId
     if (campaignId) {
       try {
-        await supabase
+        const supabaseForError = await createClient()
+        await supabaseForError
           .from('ecp_campaigns')
           .update({
             status: 'error',
@@ -201,16 +202,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const supabase = await createClient()
 
     const { data: campaign, error } = await supabase
       .from('ecp_campaigns')

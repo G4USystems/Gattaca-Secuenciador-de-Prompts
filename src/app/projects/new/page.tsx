@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Sparkles, FolderPlus, Lightbulb, ArrowRight, FileText, Settings, Rocket, Database } from 'lucide-react'
 import Link from 'next/link'
 import { createProject } from '@/hooks/useProjects'
+import { useToast } from '@/components/ui'
 
 export default function NewProjectPage() {
   const router = useRouter()
+  const toast = useToast()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
@@ -25,12 +27,13 @@ export default function NewProjectPage() {
       })
 
       console.log('Project created:', newProject)
+      toast.success('Proyecto creado', 'Proyecto creado exitosamente')
 
       // Redirect to project page
       router.push(`/projects/${newProject.id}`)
     } catch (error) {
       console.error('Error creating project:', error)
-      alert(`Error al crear el proyecto: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error al crear proyecto', error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setLoading(false)
     }

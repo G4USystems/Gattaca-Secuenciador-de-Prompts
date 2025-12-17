@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { FileText, Trash2, Eye, Link2, Search, Filter, FolderOpen, X } from 'lucide-react'
 import { DocCategory } from '@/types/database.types'
 import { formatTokenCount } from '@/lib/supabase'
+import { useModal } from '@/components/ui'
 
 interface Document {
   id: string
@@ -43,6 +44,8 @@ export default function DocumentList({
   onView,
   onCampaignChange,
 }: DocumentListProps) {
+  const modal = useModal()
+
   const [updatingDoc, setUpdatingDoc] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchInContent, setSearchInContent] = useState(false)
@@ -345,8 +348,15 @@ export default function DocumentList({
                     <Eye size={18} />
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm(`¿Eliminar "${doc.filename}"? Esta acción no se puede deshacer.`)) {
+                    onClick={async () => {
+                      const confirmed = await modal.confirm({
+                        title: 'Eliminar documento',
+                        message: `¿Eliminar "${doc.filename}"? Esta acción no se puede deshacer.`,
+                        confirmText: 'Eliminar',
+                        cancelText: 'Cancelar',
+                        variant: 'danger',
+                      })
+                      if (confirmed) {
                         onDelete(doc.id)
                       }
                     }}

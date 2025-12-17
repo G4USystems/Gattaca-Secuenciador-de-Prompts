@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Plus, X, Save, BookOpen, Copy, Check, Sparkles, FileText } from 'lucide-react'
+import { useToast } from '@/components/ui'
 
 interface ResearchPrompt {
   id: string
@@ -20,6 +21,8 @@ export default function ResearchPromptsEditor({
   initialPrompts,
   onUpdate,
 }: ResearchPromptsEditorProps) {
+  const toast = useToast()
+
   const [prompts, setPrompts] = useState<ResearchPrompt[]>(initialPrompts || [])
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -53,7 +56,7 @@ export default function ResearchPromptsEditor({
       setTimeout(() => setCopiedId(null), 2000)
     } catch (error) {
       console.error('Error copying to clipboard:', error)
-      alert('No se pudo copiar al portapapeles')
+      toast.error('Error', 'No se pudo copiar al portapapeles')
     }
   }
 
@@ -61,13 +64,13 @@ export default function ResearchPromptsEditor({
     // Validate: all prompts must have a name and content
     const invalidName = prompts.find((p) => !p.name.trim())
     if (invalidName) {
-      alert('Todos los prompts deben tener un nombre')
+      toast.warning('Validación', 'Todos los prompts deben tener un nombre')
       return
     }
 
     const invalidContent = prompts.find((p) => !p.content.trim())
     if (invalidContent) {
-      alert('Todos los prompts deben tener contenido')
+      toast.warning('Validación', 'Todos los prompts deben tener contenido')
       return
     }
 
@@ -88,12 +91,12 @@ export default function ResearchPromptsEditor({
         throw new Error(data.error || 'Failed to update research prompts')
       }
 
-      alert('Prompts de research guardados exitosamente')
+      toast.success('Guardado', 'Prompts de research guardados exitosamente')
       setIsEditing(false)
       if (onUpdate) onUpdate()
     } catch (error) {
       console.error('Error saving research prompts:', error)
-      alert(`Error al guardar: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error al guardar', error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setSaving(false)
     }

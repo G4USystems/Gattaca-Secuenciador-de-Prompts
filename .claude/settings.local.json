@@ -18,7 +18,8 @@
       "Bash(supabase gen:*)",
       "Bash(supabase --version:*)",
       "Bash(wc:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

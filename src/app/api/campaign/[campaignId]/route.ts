@@ -104,16 +104,7 @@ export async function DELETE(
       )
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const supabase = await createClient()
 
     const { error } = await supabase
       .from('ecp_campaigns')

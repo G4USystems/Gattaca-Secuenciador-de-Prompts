@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Mail, Link as LinkIcon, Users, Copy, Check, Loader2, Trash2, AlertCircle } from 'lucide-react'
+import { X, Mail, Link as LinkIcon, Users, Copy, Check, Loader2, Trash2, AlertCircle, Crown } from 'lucide-react'
+import { useToast, useModal } from '@/components/ui'
 
 interface ShareProjectModalProps {
   projectId: string
@@ -48,6 +49,9 @@ const ROLE_DESCRIPTIONS = {
 }
 
 export default function ShareProjectModal({ projectId, projectName, onClose }: ShareProjectModalProps) {
+  const toast = useToast()
+  const modal = useModal()
+
   const [activeTab, setActiveTab] = useState<TabType>('members')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -208,7 +212,14 @@ export default function ShareProjectModal({ projectId, projectName, onClose }: S
   }
 
   const handleRemoveMember = async (memberId: string) => {
-    if (!confirm('¿Seguro que quieres remover este miembro?')) return
+    const confirmed = await modal.confirm({
+      title: 'Remover miembro',
+      message: '¿Seguro que quieres remover este miembro del proyecto?',
+      confirmText: 'Remover',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    })
+    if (!confirmed) return
 
     try {
       const res = await fetch(`/api/projects/${projectId}/members?memberId=${memberId}`, {
@@ -216,12 +227,45 @@ export default function ShareProjectModal({ projectId, projectName, onClose }: S
       })
       const data = await res.json()
       if (data.success) {
+        toast.success('Removido', 'Miembro removido del proyecto')
         await loadMembers()
       } else {
         setError(data.error)
       }
     } catch (err) {
       setError('Error al remover miembro')
+    }
+  }
+
+  const handleTransferOwnership = async (newOwnerId: string, memberEmail: string) => {
+    const confirmed = await modal.confirm({
+      title: 'Transferir propiedad del proyecto',
+      message: `¿Estás seguro que quieres transferir la propiedad de este proyecto a ${memberEmail}? Pasarás a ser editor del proyecto y ya no podrás revertir este cambio.`,
+      confirmText: 'Transferir propiedad',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    })
+    if (!confirmed) return
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/transfer-ownership`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newOwnerId }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success('Propiedad transferida', `${memberEmail} es ahora el dueño del proyecto`)
+        await loadMembers()
+        // Close modal after successful transfer
+        setTimeout(() => {
+          window.location.reload() // Reload to update permissions
+        }, 1500)
+      } else {
+        setError(data.error)
+      }
+    } catch (err) {
+      setError('Error al transferir propiedad')
     }
   }
 
@@ -587,8 +631,11 @@ export default function ShareProjectModal({ projectId, projectName, onClose }: S
                       className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                     >
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-gray-900 flex items-center gap-2">
                           {member.email || 'Usuario'}
+                          {member.role === 'owner' && (
+                            <Crown className="w-4 h-4 text-yellow-600" title="Propietario" />
+                          )}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs text-gray-600 capitalize">{member.role}</span>
@@ -598,15 +645,26 @@ export default function ShareProjectModal({ projectId, projectName, onClose }: S
                           </span>
                         </div>
                       </div>
-                      {member.role !== 'owner' && (
-                        <button
-                          onClick={() => handleRemoveMember(member.id)}
-                          className="p-2 hover:bg-gray-200 rounded transition-colors"
-                          title="Remover miembro"
-                        >
-                          <Trash2 className="w-4 h-4 text-gray-600" />
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {member.role !== 'owner' && (
+                          <>
+                            <button
+                              onClick={() => handleTransferOwnership(member.user_id, member.email)}
+                              className="p-2 hover:bg-yellow-100 rounded transition-colors"
+                              title="Transferir propiedad del proyecto"
+                            >
+                              <Crown className="w-4 h-4 text-yellow-600" />
+                            </button>
+                            <button
+                              onClick={() => handleRemoveMember(member.id)}
+                              className="p-2 hover:bg-gray-200 rounded transition-colors"
+                              title="Remover miembro"
+                            >
+                              <Trash2 className="w-4 h-4 text-gray-600" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

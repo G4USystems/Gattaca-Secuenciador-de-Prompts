@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { X, Save, RotateCcw, Edit2, AlertTriangle, Table, Download, Sparkles, Loader2, Check, XCircle, MousePointer2, ChevronDown, ChevronUp, FileOutput, Clock, Hash, Type } from 'lucide-react'
 import MarkdownRenderer, { extractTables, tablesToCSV } from '../common/MarkdownRenderer'
+import { useToast, useModal } from '@/components/ui'
 
 interface StepOutputEditorProps {
   campaignId: string
@@ -68,6 +69,9 @@ export default function StepOutputEditor({
   onSave,
   onClose,
 }: StepOutputEditorProps) {
+  const toast = useToast()
+  const modal = useModal()
+
   const [editedOutput, setEditedOutput] = useState(currentOutput.output || '')
   const [saving, setSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -118,7 +122,7 @@ export default function StepOutputEditor({
 
   const handleGenerateSuggestion = async () => {
     if (!aiPrompt.trim()) {
-      alert('Por favor, describe qué cambios deseas realizar.')
+      toast.warning('Instrucción requerida', 'Por favor, describe qué cambios deseas realizar.')
       return
     }
 
@@ -143,12 +147,13 @@ export default function StepOutputEditor({
         setAiPrompt('')
         setSelectedText(null)
         setSelectionMode(false)
+        toast.info('Sugerencia generada', 'Revisa la sugerencia y aplícala si te parece correcta')
       } else {
         throw new Error(data.error || 'Failed to generate suggestion')
       }
     } catch (error) {
       console.error('Error generating suggestion:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error', error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setIsGenerating(false)
     }
@@ -182,13 +187,13 @@ export default function StepOutputEditor({
         setAiSuggestion(null)
         setHasChanges(false)
         onSave(updatedStepOutputs)
-        alert('Output guardado correctamente.')
+        toast.success('Guardado', 'Output guardado correctamente')
       } else {
         throw new Error(data.error || 'Failed to save')
       }
     } catch (error) {
       console.error('Error saving output:', error)
-      alert(`Error al guardar: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error al guardar', error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setSaving(false)
     }
@@ -225,30 +230,38 @@ export default function StepOutputEditor({
         onSave(updatedStepOutputs)
         setHasChanges(false)
         setIsEditing(false)
-        alert('Output guardado correctamente.')
+        toast.success('Guardado', 'Output guardado correctamente')
       } else {
         throw new Error(data.error || 'Failed to save')
       }
     } catch (error) {
       console.error('Error saving output:', error)
-      alert(`Error al guardar: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error al guardar', error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setSaving(false)
     }
   }
 
-  const handleRevert = () => {
-    if (confirm('¿Restaurar el output original generado por la IA?')) {
+  const handleRevert = async () => {
+    const confirmed = await modal.confirm({
+      title: 'Restaurar original',
+      message: '¿Restaurar el output original generado por la IA?',
+      confirmText: 'Restaurar',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    })
+    if (confirmed) {
       setEditedOutput(originalOutput)
       setHasChanges(originalOutput !== currentOutput.output)
       setAiSuggestion(null)
       setIsEditing(true)
+      toast.info('Restaurado', 'Output original restaurado')
     }
   }
 
   const handleExportTables = () => {
     if (tables.length === 0) {
-      alert('No se encontraron tablas en el output.')
+      toast.warning('Sin tablas', 'No se encontraron tablas en el output')
       return
     }
 
@@ -600,8 +613,17 @@ export default function StepOutputEditor({
               // Manual editing actions
               <>
                 <button
-                  onClick={() => {
-                    if (hasChanges && !confirm('¿Descartar cambios?')) return
+                  onClick={async () => {
+                    if (hasChanges) {
+                      const confirmed = await modal.confirm({
+                        title: 'Descartar cambios',
+                        message: '¿Estás seguro de que quieres descartar los cambios?',
+                        confirmText: 'Descartar',
+                        cancelText: 'Seguir editando',
+                        variant: 'warning',
+                      })
+                      if (!confirmed) return
+                    }
                     setEditedOutput(currentOutput.output || '')
                     setHasChanges(false)
                     setIsEditing(false)
