@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase-browser'
 
-const supabase = createClient()
-
 type Project = any
 
 export function useProjects() {
@@ -13,6 +11,7 @@ export function useProjects() {
   const loadProjects = async () => {
     try {
       setLoading(true)
+      const supabase = createClient()
       const { data, error } = await supabase
         .from('projects')
         .select('*')
@@ -44,6 +43,7 @@ export function useProject(projectId: string) {
   const loadProject = async () => {
     try {
       setLoading(true)
+      const supabase = createClient()
 
       // Get current user
       const { data: { session } } = await supabase.auth.getSession()
@@ -92,6 +92,8 @@ export async function createProject(data: {
   name: string
   description?: string
 }) {
+  const supabase = createClient()
+
   // Get current authenticated user
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.user) {
@@ -115,6 +117,7 @@ export async function updateProject(
   projectId: string,
   updates: Partial<any>
 ) {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('projects')
     .update(updates)
@@ -127,6 +130,7 @@ export async function updateProject(
 }
 
 export async function deleteProject(projectId: string) {
+  const supabase = createClient()
   const { error } = await supabase.from('projects').delete().eq('id', projectId)
 
   if (error) throw error
