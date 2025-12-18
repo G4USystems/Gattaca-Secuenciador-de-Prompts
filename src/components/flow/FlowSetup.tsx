@@ -5,6 +5,7 @@ import { Save, Edit, FileText, ArrowRight, Trash2, Plus, ChevronUp, ChevronDown,
 import { FlowStep, FlowConfig } from '@/types/flow.types'
 import { DEFAULT_FLOW_CONFIG } from '@/lib/defaultFlowConfig'
 import StepEditor from './StepEditor'
+import { useToast, useModal } from '@/components/ui'
 
 interface FlowSetupProps {
   projectId: string
@@ -12,6 +13,9 @@ interface FlowSetupProps {
 }
 
 export default function FlowSetup({ projectId, documents }: FlowSetupProps) {
+  const toast = useToast()
+  const modal = useModal()
+
   const [flowConfig, setFlowConfig] = useState<FlowConfig>(DEFAULT_FLOW_CONFIG)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -50,7 +54,7 @@ export default function FlowSetup({ projectId, documents }: FlowSetupProps) {
       }
     } catch (error) {
       console.error('Error loading flow config:', error)
-      alert('Error al cargar configuración del flow')
+      toast.error('Error', 'Error al cargar configuración del flow')
     } finally {
       setLoading(false)
     }
@@ -73,13 +77,13 @@ export default function FlowSetup({ projectId, documents }: FlowSetupProps) {
       const data = await response.json()
 
       if (data.success) {
-        alert('Configuración del flow guardada exitosamente')
+        toast.success('Guardado', 'Configuración del flow guardada exitosamente')
       } else {
         throw new Error(data.error || 'Failed to save')
       }
     } catch (error) {
       console.error('Error saving flow config:', error)
-      alert(`Error al guardar: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error al guardar', error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setSaving(false)
     }
@@ -95,15 +99,21 @@ export default function FlowSetup({ projectId, documents }: FlowSetupProps) {
     setEditingStep(null)
   }
 
-  const handleDeleteStep = (stepId: string, stepName: string) => {
-    if (!confirm(`¿Estás seguro de que quieres eliminar el paso "${stepName}"? Esta acción no se puede deshacer.`)) {
-      return
-    }
+  const handleDeleteStep = async (stepId: string, stepName: string) => {
+    const confirmed = await modal.confirm({
+      title: 'Eliminar paso',
+      message: `¿Estás seguro de que quieres eliminar el paso "${stepName}"? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'danger',
+    })
+    if (!confirmed) return
 
     setFlowConfig((prev) => ({
       ...prev,
       steps: prev.steps.filter((step) => step.id !== stepId),
     }))
+    toast.success('Eliminado', `Paso "${stepName}" eliminado`)
   }
 
   const handleAddStep = () => {

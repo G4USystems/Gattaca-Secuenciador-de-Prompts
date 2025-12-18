@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Plus, X, Save, Settings, Download, Upload, Variable, Check, AlertCircle, Sparkles } from 'lucide-react'
+import { useToast } from '@/components/ui'
 
 interface VariableDefinition {
   name: string
@@ -21,6 +22,8 @@ export default function ProjectVariables({
   initialVariables,
   onUpdate,
 }: ProjectVariablesProps) {
+  const toast = useToast()
+
   const [variables, setVariables] = useState<VariableDefinition[]>(initialVariables || [])
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -56,12 +59,12 @@ export default function ProjectVariables({
         if (data.variables && Array.isArray(data.variables)) {
           setVariables(data.variables)
           setIsEditing(true)
-          alert(`Importadas ${data.variables.length} variables. Revisa y guarda los cambios.`)
+          toast.success('Importación exitosa', `Importadas ${data.variables.length} variables. Revisa y guarda los cambios.`)
         } else {
           throw new Error('Formato inválido')
         }
       } catch (error) {
-        alert('Error al importar: formato de archivo inválido')
+        toast.error('Error de importación', 'Formato de archivo inválido')
       }
     }
     reader.readAsText(file)
@@ -93,7 +96,7 @@ export default function ProjectVariables({
     // Validate: all variables must have a name
     const invalid = variables.find((v) => !v.name.trim())
     if (invalid) {
-      alert('Todas las variables deben tener un nombre')
+      toast.warning('Validación', 'Todas las variables deben tener un nombre')
       return
     }
 
@@ -101,7 +104,7 @@ export default function ProjectVariables({
     const names = variables.map((v) => v.name.trim())
     const duplicates = names.filter((name, index) => names.indexOf(name) !== index)
     if (duplicates.length > 0) {
-      alert(`Nombres de variables duplicados: ${duplicates.join(', ')}`)
+      toast.warning('Nombres duplicados', `Nombres de variables duplicados: ${duplicates.join(', ')}`)
       return
     }
 
@@ -122,12 +125,12 @@ export default function ProjectVariables({
         throw new Error(data.error || 'Failed to update variables')
       }
 
-      alert('Variables guardadas exitosamente')
+      toast.success('Guardado', 'Variables guardadas exitosamente')
       setIsEditing(false)
       if (onUpdate) onUpdate()
     } catch (error) {
       console.error('Error saving variables:', error)
-      alert(`Error al guardar: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error('Error al guardar', error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setSaving(false)
     }

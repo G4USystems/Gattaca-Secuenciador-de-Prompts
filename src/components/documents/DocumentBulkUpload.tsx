@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { FolderUp, X, FileText, AlertCircle, Loader2, Check, Upload, Save } from 'lucide-react'
 import { DocCategory } from '@/types/database.types'
 import { formatTokenCount } from '@/lib/supabase'
+import { useToast } from '@/components/ui'
 
 interface DocumentUploadProps {
   projectId: string
@@ -32,6 +33,8 @@ export default function DocumentBulkUpload({
   projectId,
   onUploadComplete,
 }: DocumentUploadProps) {
+  const toast = useToast()
+
   const [isOpen, setIsOpen] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -127,14 +130,16 @@ export default function DocumentBulkUpload({
       setExtractedFiles(prev => [...prev, ...filesWithDefaults])
 
       if (result.summary.failed > 0) {
-        alert(
-          `${result.summary.failed} de ${result.summary.total} archivos fallaron en la extracción.`
+        toast.warning(
+          'Extracción parcial',
+          `${result.summary.failed} de ${result.summary.total} archivos fallaron en la extracción`
         )
       }
     } catch (error) {
       console.error('Error extracting files:', error)
-      alert(
-        `Error al procesar archivos: ${error instanceof Error ? error.message : 'Unknown error'}`
+      toast.error(
+        'Error al procesar',
+        error instanceof Error ? error.message : 'Error desconocido'
       )
     } finally {
       setExtracting(false)
@@ -157,12 +162,12 @@ export default function DocumentBulkUpload({
     const missingCategory = successfulFiles.find((f) => !f.category)
 
     if (missingCategory) {
-      alert(`Por favor asigna una categoría a: ${missingCategory.filename}`)
+      toast.warning('Categoría faltante', `Por favor asigna una categoría a: ${missingCategory.filename}`)
       return
     }
 
     if (successfulFiles.length === 0) {
-      alert('No hay archivos válidos para guardar')
+      toast.warning('Sin archivos', 'No hay archivos válidos para guardar')
       return
     }
 
@@ -194,15 +199,16 @@ export default function DocumentBulkUpload({
       }
 
       const result = await response.json()
-      alert(`${result.count} documentos guardados exitosamente`)
+      toast.success('Guardado', `${result.count} documentos guardados exitosamente`)
 
       // Close modal and reset
       handleClose()
       onUploadComplete()
     } catch (error) {
       console.error('Error saving files:', error)
-      alert(
-        `Error al guardar documentos: ${error instanceof Error ? error.message : 'Unknown error'}`
+      toast.error(
+        'Error al guardar',
+        error instanceof Error ? error.message : 'Error desconocido'
       )
     } finally {
       setSaving(false)
