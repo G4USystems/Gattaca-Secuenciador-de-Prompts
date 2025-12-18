@@ -40,9 +40,16 @@ export async function GET(
       .single()
 
     if (error) {
-      console.error('Database error:', error)
+      console.error('Database error:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        projectId,
+        userId: session.user.id,
+      })
       return NextResponse.json(
-        { error: 'Project not found' },
+        { error: 'Project not found', details: error.message, code: error.code },
         { status: 404 }
       )
     }
