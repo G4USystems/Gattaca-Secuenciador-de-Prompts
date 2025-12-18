@@ -1371,17 +1371,15 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
                               <h3 className="font-semibold text-gray-900 truncate text-lg group-hover:text-orange-600 transition-colors">
                                 {campaign.ecp_name}
                               </h3>
-                              {campaign.status === 'draft' && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleEditCampaignName(campaign.id, campaign.ecp_name)
-                                  }}
-                                  className="p-1 text-gray-400 hover:text-gray-600 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <Edit2 size={14} />
-                                </button>
-                              )}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleEditCampaignName(campaign.id, campaign.ecp_name)
+                                }}
+                                className="p-1 text-gray-400 hover:text-gray-600 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <Edit2 size={14} />
+                              </button>
                             </>
                           )}
                         </div>
