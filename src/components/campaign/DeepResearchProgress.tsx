@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Brain, Clock, Search, FileText, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
+import { Brain, Clock, Search, FileText, Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface DeepResearchProgressProps {
   campaignId: string
@@ -33,6 +33,7 @@ export default function DeepResearchProgress({
   const [thinkingSummaries, setThinkingSummaries] = useState<string[]>([])
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [isPolling, setIsPolling] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(true)
 
   const pollStatus = useCallback(async () => {
     try {
@@ -127,13 +128,16 @@ export default function DeepResearchProgress({
   }
 
   return (
-    <div className="bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 rounded-lg p-4 shadow-sm">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
+    <div className="bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 rounded-lg shadow-sm">
+      {/* Header - Clickable to toggle */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center gap-3 p-4 hover:bg-purple-50/50 transition-colors rounded-t-lg"
+      >
         <div className="p-2 bg-purple-100 rounded-lg">
           <Brain className="w-5 h-5 text-purple-600" />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 text-left">
           <h4 className="font-medium text-purple-900">Deep Research en progreso</h4>
           <p className="text-sm text-purple-600">{stepName}</p>
         </div>
@@ -141,64 +145,87 @@ export default function DeepResearchProgress({
           <Clock className="w-4 h-4" />
           <span>{formatTime(elapsedSeconds)}</span>
         </div>
-      </div>
+        <div className="text-purple-500">
+          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+        </div>
+      </button>
 
-      {/* Status indicator */}
-      <div className="flex items-center gap-2 mb-3 text-sm text-indigo-700">
-        {getStateIcon(status)}
-        <span>{getStateLabel(status)}</span>
-      </div>
-
-      {/* Thinking summaries */}
-      {thinkingSummaries.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-medium text-gray-600 uppercase tracking-wide">
-            <FileText className="w-3 h-3" />
-            Proceso de investigación
+      {/* Collapsible content */}
+      {isExpanded && (
+        <div className="px-4 pb-4">
+          {/* Status indicator */}
+          <div className="flex items-center gap-2 mb-3 text-sm text-indigo-700">
+            {getStateIcon(status)}
+            <span>{getStateLabel(status)}</span>
           </div>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {thinkingSummaries.map((summary, index) => (
-              <div
-                key={index}
-                className={`p-3 rounded-lg text-sm ${
-                  index === thinkingSummaries.length - 1
-                    ? 'bg-white border border-indigo-200 text-indigo-800 shadow-sm'
-                    : 'bg-gray-50 text-gray-600'
-                }`}
-              >
-                <div className="flex items-start gap-2">
-                  <span className="text-xs text-gray-400 font-mono mt-0.5">
-                    {index + 1}.
-                  </span>
-                  <span>{summary}</span>
-                </div>
+
+          {/* Thinking summaries - Bigger area */}
+          {thinkingSummaries.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-600 uppercase tracking-wide">
+                <FileText className="w-3 h-3" />
+                Proceso de investigación ({thinkingSummaries.length} pasos)
               </div>
-            ))}
+              <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                {thinkingSummaries.map((summary, index) => (
+                  <div
+                    key={index}
+                    className={`p-3 rounded-lg text-sm ${
+                      index === thinkingSummaries.length - 1
+                        ? 'bg-white border border-indigo-200 text-indigo-800 shadow-sm'
+                        : 'bg-gray-50 text-gray-600'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-gray-400 font-mono mt-0.5 flex-shrink-0">
+                        {index + 1}.
+                      </span>
+                      <span className="whitespace-pre-wrap">{summary}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Loading state when no progress yet */}
+          {thinkingSummaries.length === 0 && isPolling && (
+            <div className="flex items-center justify-center gap-3 py-8 text-purple-600">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span className="text-base">Iniciando Deep Research...</span>
+            </div>
+          )}
+
+          {/* Progress bar animation */}
+          <div className="mt-4 h-2 bg-purple-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 rounded-full animate-pulse"
+              style={{
+                width: status === 'COMPLETED' ? '100%' : `${Math.min((elapsedSeconds / 600) * 100, 95)}%`,
+                transition: 'width 1s ease-out'
+              }}
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Deep Research puede tardar entre 5-10 minutos
+          </p>
+        </div>
+      )}
+
+      {/* Collapsed state - show mini progress bar */}
+      {!isExpanded && (
+        <div className="px-4 pb-3">
+          <div className="h-1 bg-purple-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 rounded-full animate-pulse"
+              style={{
+                width: status === 'COMPLETED' ? '100%' : `${Math.min((elapsedSeconds / 600) * 100, 95)}%`,
+                transition: 'width 1s ease-out'
+              }}
+            />
           </div>
         </div>
       )}
-
-      {/* Loading state when no progress yet */}
-      {thinkingSummaries.length === 0 && isPolling && (
-        <div className="flex items-center justify-center gap-3 py-4 text-purple-600">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span className="text-sm">Iniciando Deep Research...</span>
-        </div>
-      )}
-
-      {/* Progress bar animation */}
-      <div className="mt-4 h-1 bg-purple-100 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 rounded-full animate-pulse"
-          style={{
-            width: status === 'COMPLETED' ? '100%' : `${Math.min((elapsedSeconds / 600) * 100, 95)}%`,
-            transition: 'width 1s ease-out'
-          }}
-        />
-      </div>
-      <p className="text-xs text-gray-500 mt-2 text-center">
-        Deep Research puede tardar entre 5-10 minutos
-      </p>
     </div>
   )
 }
