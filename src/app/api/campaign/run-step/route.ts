@@ -157,7 +157,23 @@ export async function POST(request: NextRequest) {
     const result = await response.json()
     const duration = Date.now() - startTime
 
-    // Clear current_step_id after completion
+    // Check if Deep Research returned async polling required
+    if (result.async_polling_required) {
+      console.log(`[Deep Research] Async mode - interaction created: ${result.interaction_id}`)
+      // Don't clear current_step_id - the step is still running
+      return NextResponse.json({
+        success: true,
+        async_polling_required: true,
+        interaction_id: result.interaction_id,
+        log_id: result.log_id,
+        step_id: step.id,
+        step_name: step.name,
+        model_used: result.model_used,
+        message: result.message,
+      })
+    }
+
+    // Clear current_step_id after completion (for non-async steps)
     await supabase
       .from('ecp_campaigns')
       .update({
