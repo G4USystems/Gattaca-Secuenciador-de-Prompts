@@ -210,6 +210,7 @@ async function callAnthropic(
 // Llamar a Google Deep Research API (Interactions API con polling)
 // IMPORTANTE: Deep Research es un agente autónomo que usa un flujo diferente:
 // 1. Crear interacción → 2. Polling hasta completar → 3. Recuperar resultado
+// NOTA: Este modelo SOLO soporta Interactions API, NO generateContent
 async function callDeepResearch(
   apiKey: string,
   model: string,
@@ -226,24 +227,23 @@ async function callDeepResearch(
   console.log(`[Deep Research] Iniciando investigación con modelo: ${model}`)
   console.log(`[Deep Research] Prompt length: ${fullPrompt.length} caracteres`)
 
-  // 1. CREAR INTERACCIÓN
-  // Endpoint: POST /v1beta/models/{model}:createInteraction
-  const createUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}`
+  // 1. CREAR INTERACCIÓN usando la Interactions API
+  // Endpoint correcto para Deep Research: POST /v1beta/models/{model}:generateContent con config especial
+  // O usar el endpoint de interactions directamente
+  const createUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:startInteraction?key=${apiKey}`
 
-  // Para Deep Research, usamos el endpoint de agentic con background=true
-  // La API de Interactions permite investigación autónoma
-  const interactionsUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}/interactions?key=${apiKey}`
+  console.log(`[Deep Research] Creando interacción en: ${createUrl}`)
 
-  const createResponse = await fetch(interactionsUrl, {
+  const createResponse = await fetch(createUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      userContent: {
+      contents: [{
+        role: 'user',
         parts: [{ text: fullPrompt }]
-      },
-      // background=true para no esperar respuesta inmediata
+      }],
+      // Configuración para ejecución en background
       generationConfig: {
-        // Deep Research no usa temperature de la misma forma
         candidateCount: 1
       }
     })
@@ -251,69 +251,126 @@ async function callDeepResearch(
 
   if (!createResponse.ok) {
     const errorText = await createResponse.text()
+    console.log(`[Deep Research] Error en startInteraction: ${errorText}`)
 
-    // Si el endpoint de interactions no está disponible, intentar con generateContent
-    // pero advertir que puede timeout
-    console.log(`[Deep Research] Interactions API no disponible, intentando generateContent...`)
+    // Intentar endpoint alternativo: interactions
+    console.log(`[Deep Research] Intentando endpoint alternativo...`)
+    const altUrl = `https://generativelanguage.googleapis.com/v1beta/interactions?key=${apiKey}`
 
-    // Fallback a generateContent con timeout extendido
-    const fallbackResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
+    const altResponse = await fetch(altUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: `models/${model}`,
+        userContent: {
+          parts: [{ text: fullPrompt }]
+        }
+      })
+    })
+
+    if (!altResponse.ok) {
+      const altError = await altResponse.text()
+      console.log(`[Deep Research] Error en endpoint alternativo: ${altError}`)
+
+      // Tercer intento: usar agentic endpoint
+      console.log(`[Deep Research] Intentando agentic endpoint...`)
+      const agenticUrl = `https://generativelanguage.googleapis.com/v1alpha/models/${model}:runAgent?key=${apiKey}`
+
+      const agenticResponse = await fetch(agenticUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{
+            role: 'user',
             parts: [{ text: fullPrompt }]
           }],
-          generationConfig: {
-            candidateCount: 1
+          agentConfig: {
+            background: true
           }
         })
-      }
-    )
+      })
 
-    if (!fallbackResponse.ok) {
-      const fallbackError = await fallbackResponse.text()
-      throw new Error(`Deep Research API error: ${fallbackError}`)
+      if (!agenticResponse.ok) {
+        const agenticError = await agenticResponse.text()
+        throw new Error(`Deep Research API error: No se pudo crear la interacción. Errores: startInteraction=${errorText}, interactions=${altError}, runAgent=${agenticError}`)
+      }
+
+      const agenticData = await agenticResponse.json()
+      return handleInteractionResponse(agenticData, apiKey, fullPrompt, model)
     }
 
-    const fallbackData = await fallbackResponse.json()
-    const resultText = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    const altData = await altResponse.json()
+    return handleInteractionResponse(altData, apiKey, fullPrompt, model)
+  }
 
+  const interactionData = await createResponse.json()
+  return handleInteractionResponse(interactionData, apiKey, fullPrompt, model)
+}
+
+// Manejar respuesta de interacción (polling si es necesario)
+async function handleInteractionResponse(
+  data: any,
+  apiKey: string,
+  fullPrompt: string,
+  model: string
+): Promise<LLMResponse> {
+  const POLLING_INTERVAL_MS = 20_000
+  const MAX_TIMEOUT_MS = 15 * 60 * 1000
+
+  // Si la respuesta ya tiene el texto completo (síncrono)
+  if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+    const resultText = data.candidates[0].content.parts[0].text
+    console.log(`[Deep Research] Respuesta síncrona recibida`)
     return {
       text: resultText,
       usage: {
-        promptTokens: fallbackData.usageMetadata?.promptTokenCount || 0,
-        completionTokens: fallbackData.usageMetadata?.candidatesTokenCount || 0
+        promptTokens: data.usageMetadata?.promptTokenCount || Math.ceil(fullPrompt.length / 4),
+        completionTokens: data.usageMetadata?.candidatesTokenCount || Math.ceil(resultText.length / 4)
       },
       model
     }
   }
 
-  const interactionData = await createResponse.json() as DeepResearchInteraction
-  const interactionName = interactionData.name
+  // Si es una interacción async, obtener el nombre/ID
+  const interactionName = data.name || data.interactionName || data.id
 
   if (!interactionName) {
-    throw new Error('Deep Research: No se recibió ID de interacción')
+    // Si no hay ID pero hay respuesta directa, intentar extraerla
+    if (data.response?.text) {
+      return {
+        text: data.response.text,
+        usage: {
+          promptTokens: Math.ceil(fullPrompt.length / 4),
+          completionTokens: Math.ceil(data.response.text.length / 4)
+        },
+        model
+      }
+    }
+
+    console.log(`[Deep Research] Respuesta completa:`, JSON.stringify(data, null, 2))
+    throw new Error('Deep Research: No se recibió ID de interacción ni respuesta directa')
   }
 
   console.log(`[Deep Research] Interacción creada: ${interactionName}`)
 
-  // 2. LOOP DE POLLING
+  // LOOP DE POLLING
   const startTime = Date.now()
   const thinkingSummaries: string[] = []
   let lastState = ''
 
   while (true) {
-    // Verificar timeout
     if (Date.now() - startTime > MAX_TIMEOUT_MS) {
       throw new Error(`Deep Research: Timeout después de ${MAX_TIMEOUT_MS / 60000} minutos. Interaction ID: ${interactionName}`)
     }
 
-    // Consultar estado
-    const getUrl = `https://generativelanguage.googleapis.com/v1beta/${interactionName}?key=${apiKey}`
-    const statusResponse = await fetch(getUrl, {
+    // Consultar estado - probar diferentes formatos de URL
+    let statusUrl = interactionName.startsWith('http')
+      ? `${interactionName}?key=${apiKey}`
+      : interactionName.includes('/')
+        ? `https://generativelanguage.googleapis.com/v1beta/${interactionName}?key=${apiKey}`
+        : `https://generativelanguage.googleapis.com/v1beta/interactions/${interactionName}?key=${apiKey}`
+
+    const statusResponse = await fetch(statusUrl, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     })
@@ -325,13 +382,12 @@ async function callDeepResearch(
 
     const statusData = await statusResponse.json() as DeepResearchInteraction
 
-    // Log estado si cambió
-    if (statusData.state !== lastState) {
+    if (statusData.state && statusData.state !== lastState) {
       console.log(`[Deep Research] Estado: ${statusData.state}`)
       lastState = statusData.state
     }
 
-    // Capturar thinking summaries si existen
+    // Capturar thinking summaries
     if (statusData.outputs) {
       for (const output of statusData.outputs) {
         if (output.thinkingSummary && !thinkingSummaries.includes(output.thinkingSummary)) {
@@ -343,13 +399,11 @@ async function callDeepResearch(
 
     // Verificar si completó
     if (statusData.state === 'COMPLETED') {
-      // Obtener el texto final del último output o response
       let resultText = ''
 
       if (statusData.response?.text) {
         resultText = statusData.response.text
       } else if (statusData.outputs && statusData.outputs.length > 0) {
-        // Buscar el último output con texto
         for (let i = statusData.outputs.length - 1; i >= 0; i--) {
           if (statusData.outputs[i].text) {
             resultText = statusData.outputs[i].text!
@@ -364,7 +418,7 @@ async function callDeepResearch(
       return {
         text: resultText,
         usage: {
-          promptTokens: Math.ceil(fullPrompt.length / 4),  // Estimación
+          promptTokens: Math.ceil(fullPrompt.length / 4),
           completionTokens: Math.ceil(resultText.length / 4)
         },
         model,
@@ -373,13 +427,11 @@ async function callDeepResearch(
       }
     }
 
-    // Verificar si falló
     if (statusData.state === 'FAILED') {
       const errorMsg = statusData.error?.message || 'Error desconocido en Deep Research'
       throw new Error(`Deep Research failed: ${errorMsg}. Interaction ID: ${interactionName}`)
     }
 
-    // Esperar antes del siguiente poll
     await new Promise(resolve => setTimeout(resolve, POLLING_INTERVAL_MS))
   }
 }
