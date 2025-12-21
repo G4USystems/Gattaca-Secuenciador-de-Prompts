@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 
 export const runtime = 'nodejs'
-export const maxDuration = 300 // 5 minutes
+export const maxDuration = 900 // 15 minutes (for Deep Research)
 
 interface FlowStep {
   id: string
@@ -120,11 +120,13 @@ export async function POST(request: NextRequest) {
     })
 
     if (!response.ok) {
+      // Leer el body una sola vez como texto
+      const responseText = await response.text()
       let errorData: any = {}
       try {
-        errorData = await response.json()
+        errorData = JSON.parse(responseText)
       } catch {
-        errorData = { error: await response.text() }
+        errorData = { error: responseText }
       }
 
       console.error(`Step ${step.name} failed:`, errorData)

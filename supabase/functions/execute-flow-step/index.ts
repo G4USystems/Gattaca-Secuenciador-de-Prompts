@@ -209,6 +209,14 @@ async function callAnthropic(
   }
 }
 
+// Callback para reportar progreso de Deep Research
+type ProgressCallback = (progress: {
+  state: string
+  thinkingSummaries: string[]
+  currentAction?: string
+  elapsedSeconds: number
+}) => Promise<void>
+
 // Llamar a Google Deep Research API (Interactions API con polling)
 // IMPORTANTE: Deep Research es un agente autónomo que usa un flujo diferente:
 // 1. Crear interacción → 2. Polling hasta completar → 3. Recuperar resultado
@@ -219,7 +227,8 @@ async function callDeepResearch(
   model: string,
   systemPrompt: string,
   context: string,
-  userPrompt: string
+  userPrompt: string,
+  onProgress?: ProgressCallback
 ): Promise<LLMResponse> {
   const POLLING_INTERVAL_MS = 20_000  // 20 segundos entre cada poll
   const MAX_TIMEOUT_MS = 15 * 60 * 1000  // 15 minutos máximo
@@ -310,19 +319,19 @@ async function callDeepResearch(
         }
 
         const fourthData = await fourthResponse.json()
-        return handleInteractionResponse(fourthData, apiKey, fullPrompt, model)
+        return handleInteractionResponse(fourthData, apiKey, fullPrompt, model, onProgress)
       }
 
       const thirdData = await thirdResponse.json()
-      return handleInteractionResponse(thirdData, apiKey, fullPrompt, model)
+      return handleInteractionResponse(thirdData, apiKey, fullPrompt, model, onProgress)
     }
 
     const altData = await altResponse.json()
-    return handleInteractionResponse(altData, apiKey, fullPrompt, model)
+    return handleInteractionResponse(altData, apiKey, fullPrompt, model, onProgress)
   }
 
   const interactionData = await createResponse.json()
-  return handleInteractionResponse(interactionData, apiKey, fullPrompt, model)
+  return handleInteractionResponse(interactionData, apiKey, fullPrompt, model, onProgress)
 }
 
 // Manejar respuesta de interacción (polling si es necesario)
@@ -330,7 +339,8 @@ async function handleInteractionResponse(
   data: any,
   apiKey: string,
   fullPrompt: string,
-  model: string
+  model: string,
+  onProgress?: ProgressCallback
 ): Promise<LLMResponse> {
   const POLLING_INTERVAL_MS = 20_000
   const MAX_TIMEOUT_MS = 15 * 60 * 1000
@@ -433,6 +443,20 @@ async function handleInteractionResponse(
       }
     }
 
+    // Reportar progreso si hay callback
+    if (onProgress) {
+      const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000)
+      const lastOutput = statusData.outputs?.[statusData.outputs.length - 1]
+      const currentAction = lastOutput?.type === 'search' ? `🔍 ${lastOutput.text?.substring(0, 50)}...` : undefined
+
+      await onProgress({
+        state: statusData.state || 'PROCESSING',
+        thinkingSummaries: [...thinkingSummaries],
+        currentAction,
+        elapsedSeconds
+      })
+    }
+
     // Verificar si completó
     if (statusData.state === 'COMPLETED') {
       let resultText = ''
@@ -479,7 +503,8 @@ async function executeModel(
   userPrompt: string,
   temperature: number,
   maxTokens: number,
-  preferredModel: string
+  preferredModel: string,
+  onProgress?: ProgressCallback
 ): Promise<LLMResponse> {
   // API Keys - Deep Research usa la misma key que Gemini (GOOGLE_API_KEY)
   const geminiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY')
@@ -504,7 +529,7 @@ async function executeModel(
   if (provider === 'deep-research') {
     // Deep Research: agente autónomo con Interactions API (no usa temperature/maxTokens de la misma forma)
     console.log(`[Deep Research] NOTA: Este modelo puede tardar 5-10 minutos en completar la investigación`)
-    return await callDeepResearch(geminiKey!, preferredModel, systemPrompt, context, userPrompt)
+    return await callDeepResearch(geminiKey!, preferredModel, systemPrompt, context, userPrompt, onProgress)
   } else if (provider === 'gemini') {
     return await callGemini(geminiKey!, preferredModel, systemPrompt, context, userPrompt, temperature, maxTokens)
   } else if (provider === 'openai') {
@@ -720,13 +745,33 @@ serve(async (req) => {
 
     console.log(`Executing step "${step_config.name}" with model: ${preferredModel}`)
 
+    // Callback para Deep Research progress
+    const isDeepResearch = preferredModel.startsWith('deep-research')
+    const onProgress: ProgressCallback | undefined = isDeepResearch ? async (progress) => {
+      // Guardar progreso en execution_logs
+      await supabase
+        .from('execution_logs')
+        .update({
+          status: 'running',
+          error_details: JSON.stringify({
+            type: 'deep_research_progress',
+            state: progress.state,
+            elapsedSeconds: progress.elapsedSeconds,
+            thinkingSummaries: progress.thinkingSummaries.slice(-5), // Últimos 5
+            currentAction: progress.currentAction
+          })
+        })
+        .eq('id', logEntry.id)
+    } : undefined
+
     const llmResponse = await executeModel(
       SYSTEM_INSTRUCTION,
       contextString,
       promptWithFormat,
       temperature,
       maxTokens,
-      preferredModel
+      preferredModel,
+      onProgress
     )
 
     const outputText = llmResponse.text
