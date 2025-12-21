@@ -854,14 +854,20 @@ serve(async (req) => {
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Edge function error:', error)
+    const errorMessage = error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : JSON.stringify(error) || 'Unknown error'
+
+    console.error('Edge function error:', errorMessage, error)
 
     // Usar step_config del body ya parseado
     const failedModel = step_config?.model || 'gemini-2.5-flash'
 
     return new Response(
       JSON.stringify({
-        error: error.message,
+        error: errorMessage,
         failed_model: failedModel,
         can_retry: true,  // Indica al frontend que puede reintentar con otro modelo
       }),
