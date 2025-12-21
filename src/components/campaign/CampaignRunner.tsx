@@ -1687,7 +1687,6 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
                                       {stepRunning && isDeepResearchStep && (
                                         <DeepResearchProgress
                                           campaignId={campaign.id}
-                                          stepId={step.id}
                                           stepName={step.name}
                                         />
                                       )}
