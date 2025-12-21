@@ -5,8 +5,11 @@ export const runtime = 'nodejs'
 export const maxDuration = 60 // Cada poll es rápido, 60s es suficiente
 
 interface DeepResearchInteraction {
-  name: string
-  state: 'STATE_UNSPECIFIED' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
+  name?: string
+  id?: string
+  // Google uses both 'state' (REST) and 'status' (SDK) - support both cases
+  state?: string  // REST API: 'STATE_UNSPECIFIED' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
+  status?: string // SDK: 'completed' | 'failed' | 'in_progress' | 'cancelled'
   response?: {
     text: string
   }
@@ -14,7 +17,7 @@ interface DeepResearchInteraction {
     message: string
     code: string
   }
-  // Google may use different field names for intermediate outputs
+  // Outputs array for intermediate and final results
   outputs?: Array<{
     type?: string
     text?: string
@@ -95,7 +98,17 @@ export async function POST(request: NextRequest) {
 
     const statusData = await statusResponse.json() as DeepResearchInteraction
 
-    console.log(`[Deep Research Poll] State: ${statusData.state}`)
+    // Normalize state - Google uses both 'state' and 'status' fields with different casing
+    const rawState = statusData.state || statusData.status || 'unknown'
+    const normalizedState = rawState.toUpperCase()
+
+    // Map various state values to our normalized format
+    const isCompleted = normalizedState === 'COMPLETED' || rawState === 'completed'
+    const isFailed = normalizedState === 'FAILED' || rawState === 'failed' || rawState === 'cancelled'
+    const isProcessing = !isCompleted && !isFailed
+
+    console.log(`[Deep Research Poll] Raw state/status: state=${statusData.state}, status=${statusData.status}`)
+    console.log(`[Deep Research Poll] Normalized: ${normalizedState}, isCompleted=${isCompleted}, isFailed=${isFailed}`)
     console.log(`[Deep Research Poll] Full response keys:`, Object.keys(statusData))
     console.log(`[Deep Research Poll] Has outputs: ${!!statusData.outputs}, count: ${statusData.outputs?.length || 0}`)
     // Log alternative fields
@@ -109,7 +122,7 @@ export async function POST(request: NextRequest) {
       console.log(`[Deep Research Poll] First output:`, JSON.stringify(statusData.outputs[0], null, 2))
     }
     // Log the whole response if in processing state to understand structure
-    if (statusData.state === 'PROCESSING') {
+    if (isProcessing) {
       console.log(`[Deep Research Poll] Full PROCESSING response:`, JSON.stringify(statusData, null, 2).substring(0, 2000))
     }
 
@@ -157,11 +170,10 @@ export async function POST(request: NextRequest) {
       await supabase
         .from('execution_logs')
         .update({
-          status: statusData.state === 'COMPLETED' ? 'completed' :
-                  statusData.state === 'FAILED' ? 'error' : 'polling',
+          status: isCompleted ? 'completed' : isFailed ? 'error' : 'polling',
           error_details: JSON.stringify({
             type: 'deep_research_progress',
-            state: statusData.state,
+            state: normalizedState,
             thinkingSummaries: thinkingSummaries.slice(-5),
             updated_at: new Date().toISOString()
           })
@@ -170,7 +182,7 @@ export async function POST(request: NextRequest) {
     }
 
     // If completed, extract result and save to campaign
-    if (statusData.state === 'COMPLETED') {
+    if (isCompleted) {
       let resultText = ''
 
       // Try multiple extraction methods
@@ -257,7 +269,7 @@ export async function POST(request: NextRequest) {
     }
 
     // If failed, return error
-    if (statusData.state === 'FAILED') {
+    if (isFailed) {
       const errorMsg = statusData.error?.message || 'Deep Research failed'
 
       // Update execution log as error
@@ -280,7 +292,7 @@ export async function POST(request: NextRequest) {
 
     // Still processing
     return NextResponse.json({
-      status: statusData.state || 'PROCESSING',
+      status: 'PROCESSING',
       thinking_summaries: thinkingSummaries,
     })
 
