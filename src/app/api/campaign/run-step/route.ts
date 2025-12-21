@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 
 export const runtime = 'nodejs'
-export const maxDuration = 900 // 15 minutes (for Deep Research)
+export const maxDuration = 800 // ~13 minutes (Vercel Pro limit for Deep Research)
 
 interface FlowStep {
   id: string
