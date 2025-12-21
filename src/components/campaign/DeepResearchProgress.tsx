@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase-browser'
 
 interface DeepResearchProgressProps {
   campaignId: string
-  stepId: string
   stepName: string
 }
 
@@ -18,7 +17,7 @@ interface ProgressData {
   currentAction?: string
 }
 
-export default function DeepResearchProgress({ campaignId, stepId, stepName }: DeepResearchProgressProps) {
+export default function DeepResearchProgress({ campaignId, stepName }: DeepResearchProgressProps) {
   const [progress, setProgress] = useState<ProgressData | null>(null)
   const [isPolling, setIsPolling] = useState(true)
   const supabase = createClient()
@@ -30,12 +29,13 @@ export default function DeepResearchProgress({ campaignId, stepId, stepName }: D
     const pollProgress = async () => {
       try {
         // Fetch latest execution log for this campaign/step
+        // Note: We search by step_name since that's what's stored in execution_logs
         const { data, error } = await supabase
           .from('execution_logs')
-          .select('error_details, status')
+          .select('error_details, status, step_name')
           .eq('campaign_id', campaignId)
-          .eq('step_id', stepId)
-          .eq('status', 'running')
+          .eq('step_name', stepName)
+          .in('status', ['started', 'running'])
           .order('created_at', { ascending: false })
           .limit(1)
           .single()
@@ -48,7 +48,7 @@ export default function DeepResearchProgress({ campaignId, stepId, stepName }: D
               .from('execution_logs')
               .select('status')
               .eq('campaign_id', campaignId)
-              .eq('step_id', stepId)
+              .eq('step_name', stepName)
               .order('created_at', { ascending: false })
               .limit(1)
               .single()
@@ -87,7 +87,7 @@ export default function DeepResearchProgress({ campaignId, stepId, stepName }: D
       if (intervalId) clearInterval(intervalId)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaignId, stepId])
+  }, [campaignId, stepName])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
