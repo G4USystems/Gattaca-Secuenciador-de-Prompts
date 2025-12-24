@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef } from 'react'
-import { X, Save, RotateCcw, Edit2, AlertTriangle, Table, Download, Sparkles, Loader2, Check, XCircle, MousePointer2, ChevronDown, ChevronUp, FileOutput, Clock, Hash, Type, Cpu, Settings } from 'lucide-react'
+import { X, Save, RotateCcw, Edit2, AlertTriangle, Table, Download, Sparkles, Loader2, Check, XCircle, MousePointer2, ChevronDown, ChevronUp, FileOutput, Clock, Hash, Type, Cpu, Settings, Maximize2, Minimize2 } from 'lucide-react'
 import MarkdownRenderer, { extractTables, tablesToCSV } from '../common/MarkdownRenderer'
 import { useToast, useModal } from '@/components/ui'
 
@@ -110,6 +110,10 @@ export default function StepOutputEditor({
   const [aiModel, setAiModel] = useState('gemini-2.5-flash')
   const [aiTemperature, setAiTemperature] = useState(0.7)
   const [aiMaxTokens, setAiMaxTokens] = useState(8192)
+
+  // View mode states
+  const [isCompactHeader, setIsCompactHeader] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Selection state
   const [selectedText, setSelectedText] = useState<string | null>(null)
@@ -312,21 +316,31 @@ export default function StepOutputEditor({
   const wordCount = displayContent.trim() ? displayContent.trim().split(/\s+/).length : 0
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-5 shrink-0">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                <FileOutput className="w-6 h-6 text-white" />
-              </div>
-              <div>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-2">
+      <div className={`bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 ${
+        isFullscreen
+          ? 'w-full h-full max-w-none rounded-none'
+          : 'w-full max-w-7xl h-[95vh]'
+      }`}>
+        {/* Header - Collapsible */}
+        <div className={`bg-gradient-to-r from-orange-500 to-amber-500 shrink-0 transition-all duration-300 ${
+          isCompactHeader ? 'px-4 py-2' : 'px-6 py-5'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {!isCompactHeader && (
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <FileOutput className="w-6 h-6 text-white" />
+                </div>
+              )}
+              <div className={isCompactHeader ? 'flex items-center gap-3' : ''}>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-semibold text-white/90 bg-white/20 px-2.5 py-1 rounded-lg backdrop-blur-sm">
+                  <span className={`font-semibold text-white/90 bg-white/20 rounded-lg backdrop-blur-sm ${
+                    isCompactHeader ? 'text-xs px-2 py-0.5' : 'text-xs px-2.5 py-1'
+                  }`}>
                     Paso {stepOrder}
                   </span>
-                  <h2 className="text-xl font-bold text-white">{stepName}</h2>
+                  <h2 className={`font-bold text-white ${isCompactHeader ? 'text-base' : 'text-xl'}`}>{stepName}</h2>
                   {isEdited && (
                     <span className="text-xs font-medium text-amber-100 bg-amber-600/50 px-2 py-0.5 rounded-lg inline-flex items-center gap-1">
                       <Edit2 size={10} />
@@ -340,40 +354,66 @@ export default function StepOutputEditor({
                     </span>
                   )}
                 </div>
-                <p className="text-orange-100 text-sm mt-1">{campaignName}</p>
+                {!isCompactHeader && <p className="text-orange-100 text-sm mt-1">{campaignName}</p>}
+                {isCompactHeader && <span className="text-orange-100 text-xs">· {campaignName}</span>}
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <X size={20} />
-            </button>
+            <div className="flex items-center gap-1">
+              {/* Compact Stats when header is collapsed */}
+              {isCompactHeader && (
+                <div className="flex items-center gap-3 mr-4 text-orange-100 text-xs">
+                  <span>{wordCount.toLocaleString()} palabras</span>
+                  <span>{charCount.toLocaleString()} chars</span>
+                </div>
+              )}
+              <button
+                onClick={() => setIsCompactHeader(!isCompactHeader)}
+                className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                title={isCompactHeader ? 'Expandir header' : 'Compactar header'}
+              >
+                {isCompactHeader ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+              </button>
+              <button
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+              >
+                {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
           </div>
 
-          {/* Stats */}
-          <div className="flex flex-wrap items-center gap-4 mt-4">
-            <div className="flex items-center gap-2 text-orange-100 text-sm">
-              <Type size={14} />
-              <span>{charCount.toLocaleString()} caracteres</span>
-            </div>
-            <div className="flex items-center gap-2 text-orange-100 text-sm">
-              <Hash size={14} />
-              <span>{wordCount.toLocaleString()} palabras</span>
-            </div>
-            {currentOutput.tokens && (
+          {/* Stats - Only shown when header is expanded */}
+          {!isCompactHeader && (
+            <div className="flex flex-wrap items-center gap-4 mt-4">
               <div className="flex items-center gap-2 text-orange-100 text-sm">
-                <Sparkles size={14} />
-                <span>{currentOutput.tokens.toLocaleString()} tokens</span>
+                <Type size={14} />
+                <span>{charCount.toLocaleString()} caracteres</span>
               </div>
-            )}
-            {currentOutput.completed_at && (
               <div className="flex items-center gap-2 text-orange-100 text-sm">
-                <Clock size={14} />
-                <span>{new Date(currentOutput.completed_at).toLocaleString()}</span>
+                <Hash size={14} />
+                <span>{wordCount.toLocaleString()} palabras</span>
               </div>
-            )}
-          </div>
+              {currentOutput.tokens && (
+                <div className="flex items-center gap-2 text-orange-100 text-sm">
+                  <Sparkles size={14} />
+                  <span>{currentOutput.tokens.toLocaleString()} tokens</span>
+                </div>
+              )}
+              {currentOutput.completed_at && (
+                <div className="flex items-center gap-2 text-orange-100 text-sm">
+                  <Clock size={14} />
+                  <span>{new Date(currentOutput.completed_at).toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* AI Assistant Bar */}
