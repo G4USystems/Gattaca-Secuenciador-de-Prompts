@@ -1,8 +1,63 @@
 // Supabase Edge Function: Execute Flow Step (Generic)
 // Executes a single step from a dynamic flow configuration
+// Now uses OpenRouter as the unified LLM provider (except Deep Research)
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+
+// ============================================================================
+// ENCRYPTION UTILITIES (for decrypting user's OpenRouter API key)
+// ============================================================================
+
+const ALGORITHM = 'AES-GCM'
+const IV_LENGTH = 16
+const AUTH_TAG_LENGTH = 16
+
+async function getEncryptionKey(): Promise<CryptoKey> {
+  const keyHex = Deno.env.get('ENCRYPTION_KEY')
+  if (!keyHex) {
+    throw new Error('ENCRYPTION_KEY environment variable is not set')
+  }
+  if (keyHex.length !== 64) {
+    throw new Error('ENCRYPTION_KEY must be 64 hex characters (32 bytes)')
+  }
+
+  // Convert hex to Uint8Array
+  const keyBytes = new Uint8Array(32)
+  for (let i = 0; i < 32; i++) {
+    keyBytes[i] = parseInt(keyHex.substr(i * 2, 2), 16)
+  }
+
+  return await crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: ALGORITHM },
+    false,
+    ['decrypt']
+  )
+}
+
+async function decryptToken(encryptedData: string): Promise<string> {
+  const key = await getEncryptionKey()
+
+  // Decode base64
+  const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0))
+
+  if (combined.length < IV_LENGTH + AUTH_TAG_LENGTH) {
+    throw new Error('Invalid encrypted data: too short')
+  }
+
+  const iv = combined.slice(0, IV_LENGTH)
+  const ciphertext = combined.slice(IV_LENGTH)
+
+  const decrypted = await crypto.subtle.decrypt(
+    { name: ALGORITHM, iv },
+    key,
+    ciphertext
+  )
+
+  return new TextDecoder().decode(decrypted)
+}
 
 const SYSTEM_INSTRUCTION = `You are a strict strategic analyst.
 Your knowledge base is STRICTLY LIMITED to the context provided below.
@@ -269,6 +324,106 @@ async function callAnthropic(
     model,
   }
 }
+
+// ============================================================================
+// OPENROUTER API (Unified LLM Provider)
+// ============================================================================
+
+// Map internal model names to OpenRouter model IDs
+function mapToOpenRouterModel(model: string): string {
+  // Gemini models
+  if (model === 'gemini-3.0-pro-preview') return 'google/gemini-2.0-flash-thinking-exp:free'
+  if (model === 'gemini-2.5-pro') return 'google/gemini-2.5-pro-preview'
+  if (model === 'gemini-2.5-flash') return 'google/gemini-2.5-flash-preview'
+  if (model === 'gemini-2.5-flash-lite') return 'google/gemini-2.0-flash-lite-001'
+  if (model.startsWith('gemini')) return `google/${model}`
+
+  // OpenAI models
+  if (model === 'gpt-5.2' || model === 'gpt-5' || model === 'gpt-5-mini') return 'openai/gpt-4o' // Fallback, GPT-5 not available yet
+  if (model === 'gpt-4.1' || model === 'gpt-4.1-mini') return 'openai/gpt-4o'
+  if (model === 'gpt-4o') return 'openai/gpt-4o'
+  if (model === 'gpt-4o-mini') return 'openai/gpt-4o-mini'
+  if (model === 'o4-mini') return 'openai/o4-mini'
+  if (model === 'o3-pro') return 'openai/o3-pro'
+  if (model === 'o3') return 'openai/o3'
+  if (model === 'o3-mini') return 'openai/o3-mini'
+  if (model === 'o1') return 'openai/o1'
+  if (model === 'o1-mini') return 'openai/o1-mini'
+  if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) {
+    return `openai/${model}`
+  }
+
+  // Anthropic models
+  if (model === 'claude-4.5-opus') return 'anthropic/claude-sonnet-4' // claude-4.5 not available yet
+  if (model === 'claude-4.5-sonnet') return 'anthropic/claude-sonnet-4'
+  if (model === 'claude-4.5-haiku') return 'anthropic/claude-haiku-3.5'
+  if (model.startsWith('claude')) return `anthropic/${model}`
+
+  // Default: return as-is (might already be OpenRouter format)
+  return model
+}
+
+// Call OpenRouter API
+async function callOpenRouter(
+  userApiKey: string,
+  model: string,
+  systemPrompt: string,
+  context: string,
+  userPrompt: string,
+  temperature: number,
+  maxTokens: number
+): Promise<LLMResponse> {
+  const openRouterModel = mapToOpenRouterModel(model)
+  const appUrl = Deno.env.get('NEXT_PUBLIC_APP_URL') || 'https://gatacca.app'
+
+  console.log(`[OpenRouter] Calling model: ${openRouterModel} (original: ${model})`)
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${userApiKey}`,
+      'HTTP-Referer': appUrl,
+      'X-Title': 'Gatacca',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: openRouterModel,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `${context}\n\n--- TASK ---\n\n${userPrompt}` },
+      ],
+      temperature,
+      max_tokens: maxTokens,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error(`[OpenRouter] API error: ${errorText}`)
+    throw new Error(`OpenRouter API error: ${errorText}`)
+  }
+
+  const data = await response.json()
+
+  if (data.error) {
+    throw new Error(`OpenRouter error: ${data.error.message || JSON.stringify(data.error)}`)
+  }
+
+  const text = data.choices?.[0]?.message?.content || ''
+
+  return {
+    text,
+    usage: {
+      promptTokens: data.usage?.prompt_tokens || 0,
+      completionTokens: data.usage?.completion_tokens || Math.ceil(text.length / 4),
+    },
+    model: openRouterModel,
+  }
+}
+
+// ============================================================================
+// DEEP RESEARCH (Google Interactions API - NOT available on OpenRouter)
+// ============================================================================
 
 // Callback para reportar progreso de Deep Research
 type ProgressCallback = (progress: {
@@ -585,8 +740,9 @@ async function handleInteractionResponse(
   }
 }
 
-// Ejecutar modelo (SIN fallback automático - el usuario elige si reintentar)
+// Ejecutar modelo usando OpenRouter (excepto Deep Research que usa Google Interactions API)
 async function executeModel(
+  userOpenRouterKey: string,
   systemPrompt: string,
   context: string,
   userPrompt: string,
@@ -595,39 +751,29 @@ async function executeModel(
   preferredModel: string,
   onProgress?: ProgressCallback
 ): Promise<LLMResponse> {
-  // API Keys - Deep Research usa la misma key que Gemini (GOOGLE_API_KEY)
-  const geminiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY')
-  const openaiKey = Deno.env.get('OPENAI_API_KEY')
-  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY') || Deno.env.get('ANTHROPIC_KEY')
-
   const provider = getProvider(preferredModel)
-  console.log(`Executing with ${provider}/${preferredModel}...`)
+  console.log(`Executing with ${provider}/${preferredModel} via OpenRouter...`)
 
-  // Verificar que tenemos la API key necesaria
-  if ((provider === 'gemini' || provider === 'deep-research') && !geminiKey) {
-    throw new Error(`No API key configured for ${provider}. Please add GOOGLE_API_KEY or GEMINI_API_KEY.`)
-  }
-  if (provider === 'openai' && !openaiKey) {
-    throw new Error(`No API key configured for OpenAI. Please add OPENAI_API_KEY.`)
-  }
-  if (provider === 'anthropic' && !anthropicKey) {
-    throw new Error(`No API key configured for Anthropic. Please add ANTHROPIC_API_KEY.`)
-  }
-
-  // Ejecutar el modelo seleccionado (sin fallback)
+  // Deep Research uses Google Interactions API directly (not available on OpenRouter)
   if (provider === 'deep-research') {
-    // Deep Research: agente autónomo con Interactions API (no usa temperature/maxTokens de la misma forma)
+    const geminiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY')
+    if (!geminiKey) {
+      throw new Error('Deep Research requires GEMINI_API_KEY. This model is not available on OpenRouter.')
+    }
     console.log(`[Deep Research] NOTA: Este modelo puede tardar 5-10 minutos en completar la investigación`)
-    return await callDeepResearch(geminiKey!, preferredModel, systemPrompt, context, userPrompt, onProgress)
-  } else if (provider === 'gemini') {
-    return await callGemini(geminiKey!, preferredModel, systemPrompt, context, userPrompt, temperature, maxTokens)
-  } else if (provider === 'openai') {
-    return await callOpenAI(openaiKey!, preferredModel, systemPrompt, context, userPrompt, temperature, maxTokens)
-  } else if (provider === 'anthropic') {
-    return await callAnthropic(anthropicKey!, preferredModel, systemPrompt, context, userPrompt, temperature, maxTokens)
+    return await callDeepResearch(geminiKey, preferredModel, systemPrompt, context, userPrompt, onProgress)
   }
 
-  throw new Error(`Unknown provider for model: ${preferredModel}`)
+  // All other models go through OpenRouter
+  return await callOpenRouter(
+    userOpenRouterKey,
+    preferredModel,
+    systemPrompt,
+    context,
+    userPrompt,
+    temperature,
+    maxTokens
+  )
 }
 
 function getProvider(model: string): string {
@@ -654,6 +800,7 @@ interface FlowStep {
 interface RequestPayload {
   campaign_id: string
   step_config: FlowStep
+  user_id: string  // User ID to fetch their OpenRouter API key
 }
 
 function getFormatInstructions(format: OutputFormat): string {
@@ -705,7 +852,7 @@ serve(async (req) => {
     )
   }
 
-  const { campaign_id, step_config } = requestBody
+  const { campaign_id, step_config, user_id } = requestBody
 
   try {
 
@@ -716,9 +863,57 @@ serve(async (req) => {
       )
     }
 
+    if (!user_id) {
+      return new Response(
+        JSON.stringify({ error: 'Missing user_id. Please connect OpenRouter first.' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // =========================================================================
+    // FETCH AND DECRYPT USER'S OPENROUTER API KEY
+    // =========================================================================
+    const { data: tokenRecord, error: tokenError } = await supabase
+      .from('user_openrouter_tokens')
+      .select('encrypted_api_key')
+      .eq('user_id', user_id)
+      .single()
+
+    if (tokenError || !tokenRecord?.encrypted_api_key) {
+      return new Response(
+        JSON.stringify({
+          error: 'OpenRouter not connected. Please connect your OpenRouter account first.',
+          requires_openrouter: true
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    let userOpenRouterKey: string
+    try {
+      userOpenRouterKey = await decryptToken(tokenRecord.encrypted_api_key)
+    } catch (decryptError) {
+      console.error('Failed to decrypt OpenRouter key:', decryptError)
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to decrypt OpenRouter API key. Please reconnect your account.',
+          requires_openrouter: true
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Update last_used_at
+    await supabase
+      .from('user_openrouter_tokens')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('user_id', user_id)
+
+    // =========================================================================
 
     // Load campaign
     const { data: campaign, error: campaignError } = await supabase
@@ -883,8 +1078,9 @@ serve(async (req) => {
       )
     }
 
-    // Para otros modelos, ejecutar normalmente
+    // Para otros modelos, ejecutar normalmente via OpenRouter
     const llmResponse = await executeModel(
+      userOpenRouterKey,
       SYSTEM_INSTRUCTION,
       contextString,
       promptWithFormat,

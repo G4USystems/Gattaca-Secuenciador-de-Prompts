@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
+import { OpenRouterProvider } from '@/lib/openrouter-context'
 import { UIProviders } from '@/components/ui'
 import Header from '@/components/Header'
 
@@ -29,7 +30,8 @@ export default function RootLayout({
     <html lang="es">
       <body>
         <AuthProvider>
-          <UIProviders>
+          <OpenRouterProvider>
+            <UIProviders>
             <div className="min-h-screen flex flex-col">
               <Header />
               <div className="flex-1">
@@ -37,6 +39,7 @@ export default function RootLayout({
               </div>
             </div>
           </UIProviders>
+          </OpenRouterProvider>
         </AuthProvider>
       </body>
     </html>
