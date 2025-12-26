@@ -9,6 +9,8 @@ import CampaignComparison from './CampaignComparison'
 import DeepResearchProgress from './DeepResearchProgress'
 import { FlowConfig, FlowStep, LLMModel } from '@/types/flow.types'
 import { useToast, useModal } from '@/components/ui'
+import { useOpenRouter } from '@/lib/openrouter-context'
+import { OpenRouterAuthModal } from '@/components/openrouter'
 
 // Modelos LLM disponibles para retry
 const LLM_MODELS = [
@@ -101,6 +103,8 @@ interface CampaignDocument {
 export default function CampaignRunner({ projectId, project: projectProp }: CampaignRunnerProps) {
   const toast = useToast()
   const modal = useModal()
+  const { isConnected: hasOpenRouter } = useOpenRouter()
+  const [showOpenRouterModal, setShowOpenRouterModal] = useState(false)
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [project, setProject] = useState<Project | null>(projectProp || null)
@@ -675,6 +679,12 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
   }
 
   const handleRunStep = async (campaignId: string, stepId: string, stepName: string, overrideModel?: string) => {
+    // Verificar conexión con OpenRouter antes de ejecutar
+    if (!hasOpenRouter) {
+      setShowOpenRouterModal(true)
+      return
+    }
+
     // Ya no necesitamos confirmación porque viene del dialog de configuración
     setRunningStep({ campaignId, stepId })
     setRetryDialog(null) // Cerrar diálogo de retry si estaba abierto
@@ -2308,6 +2318,13 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
           </div>
         </div>
       )}
+
+      {/* OpenRouter Auth Modal */}
+      <OpenRouterAuthModal
+        isOpen={showOpenRouterModal}
+        onClose={() => setShowOpenRouterModal(false)}
+        trigger="action"
+      />
     </div>
   )
 }

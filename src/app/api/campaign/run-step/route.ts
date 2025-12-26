@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           campaign_id: campaignId,
           step_config: stepConfig,
+          user_id: session.user.id,
         }),
         signal: controller.signal,
       })
