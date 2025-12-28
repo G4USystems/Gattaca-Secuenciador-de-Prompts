@@ -96,6 +96,7 @@ interface Project {
   flow_config?: FlowConfig
   campaign_docs_guide?: string
   deep_research_prompts?: ResearchPrompt[]
+  custom_statuses?: CustomStatus[]
 }
 
 interface CampaignDocument {
@@ -617,8 +618,8 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
 
   // Get custom statuses from project or use defaults
   const getCustomStatuses = (): CustomStatus[] => {
-    if (project?.custom_statuses && Array.isArray(project.custom_statuses) && project.custom_statuses.length > 0) {
-      return project.custom_statuses as CustomStatus[]
+    if (project?.custom_statuses && project.custom_statuses.length > 0) {
+      return project.custom_statuses
     }
     return DEFAULT_STATUSES
   }
@@ -667,7 +668,7 @@ export default function CampaignRunner({ projectId, project: projectProp }: Camp
     }
 
     // Update local project state
-    setProject({ ...project, custom_statuses: statuses } as any)
+    setProject({ ...project, custom_statuses: statuses })
   }
 
   const handleRunCampaign = async (campaignId: string) => {
