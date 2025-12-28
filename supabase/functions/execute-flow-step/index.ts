@@ -902,7 +902,8 @@ serve(async (req) => {
     console.log(`Step completed using model: ${modelUsed}`)
 
     // Save output to campaign.step_outputs
-    const currentStepOutputs = campaign.step_outputs || {}
+    // IMPORTANT: Create a deep copy to ensure Supabase detects the change
+    const currentStepOutputs = JSON.parse(JSON.stringify(campaign.step_outputs || {}))
     currentStepOutputs[step_config.id] = {
       step_name: step_config.name,
       output: outputText,
@@ -911,12 +912,21 @@ serve(async (req) => {
       completed_at: new Date().toISOString(),
     }
 
-    await supabase
+    console.log(`Saving step_outputs for step ${step_config.id}, campaign ${campaign_id}`)
+
+    const { error: updateError } = await supabase
       .from('ecp_campaigns')
       .update({
         step_outputs: currentStepOutputs,
       })
       .eq('id', campaign_id)
+
+    if (updateError) {
+      console.error('Error saving step_outputs:', updateError)
+      throw new Error(`Failed to save step output: ${updateError.message}`)
+    }
+
+    console.log(`Successfully saved step_outputs for step ${step_config.id}`)
 
     // Log completion
     const duration = Date.now() - startTime
