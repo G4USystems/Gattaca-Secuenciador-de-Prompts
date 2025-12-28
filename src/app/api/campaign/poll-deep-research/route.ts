@@ -231,7 +231,8 @@ export async function POST(request: NextRequest) {
         const stepName = step?.name || step_id
 
         // Save output to campaign.step_outputs
-        const currentStepOutputs = campaign.step_outputs || {}
+        // IMPORTANT: Create a deep copy to ensure Supabase detects the change
+        const currentStepOutputs = JSON.parse(JSON.stringify(campaign.step_outputs || {}))
         currentStepOutputs[step_id] = {
           step_name: stepName,
           output: resultText,
@@ -240,12 +241,20 @@ export async function POST(request: NextRequest) {
           completed_at: new Date().toISOString(),
         }
 
-        await supabase
+        console.log(`[Deep Research Poll] Saving step_outputs for step ${step_id}`)
+
+        const { error: updateError } = await supabase
           .from('ecp_campaigns')
           .update({
             step_outputs: currentStepOutputs,
           })
           .eq('id', campaign_id)
+
+        if (updateError) {
+          console.error('[Deep Research Poll] Error saving step_outputs:', updateError)
+        } else {
+          console.log(`[Deep Research Poll] Successfully saved step_outputs for step ${step_id}`)
+        }
 
         // Update execution log as completed
         if (log_id) {
