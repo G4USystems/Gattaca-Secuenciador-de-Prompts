@@ -33,10 +33,10 @@ export async function GET(request: NextRequest) {
     const userId = session.user.id
     console.log('[OpenRouter Callback] Processing callback for user:', userId)
 
-    // Get pending PKCE data
+    // Get pending PKCE data including state for CSRF validation
     const { data: tokenRecord, error: fetchError } = await supabase
       .from('user_openrouter_tokens')
-      .select('pending_code_verifier, pending_expires_at')
+      .select('pending_code_verifier, pending_state, pending_expires_at')
       .eq('user_id', userId)
       .single()
 
@@ -55,6 +55,19 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('[OpenRouter Callback] PKCE data found, expires:', tokenRecord.pending_expires_at)
+
+    // CSRF validation: compare state from cookie with state stored in DB
+    const stateCookie = request.cookies.get('openrouter_state')?.value
+    if (!stateCookie || !tokenRecord.pending_state || stateCookie !== tokenRecord.pending_state) {
+      console.error('[OpenRouter Callback] CSRF validation failed:', {
+        hasCookie: !!stateCookie,
+        hasDbState: !!tokenRecord.pending_state,
+        match: stateCookie === tokenRecord.pending_state
+      })
+      return NextResponse.redirect(
+        `${appUrl}?openrouter_error=${encodeURIComponent('Security validation failed. Please try again.')}`
+      )
+    }
 
     // Check if PKCE data is expired
     if (new Date(tokenRecord.pending_expires_at) < new Date()) {
@@ -95,7 +108,7 @@ export async function GET(request: NextRequest) {
     }
 
     const keyData = await exchangeResponse.json()
-    console.log('[OpenRouter Callback] Received key data:', { hasKey: !!keyData.key, label: keyData.label, fullResponse: keyData })
+    console.log('[OpenRouter Callback] Received key data:', { hasKey: !!keyData.key, name: keyData.name, label: keyData.label, fullResponse: keyData })
     const apiKey = keyData.key
 
     if (!apiKey) {
@@ -127,7 +140,6 @@ export async function GET(request: NextRequest) {
     const updateData: any = {
       encrypted_api_key: encryptedKey,
       key_prefix: keyPrefix,
-      key_label: keyData.label || 'Gatacca',
       // Use the expires_at field directly from OpenRouter (can be null if no expiration)
       expires_at: keyData.expires_at || null,
       // Store the credit limit if provided by OpenRouter
@@ -172,8 +184,7 @@ export async function GET(request: NextRequest) {
 
     console.log('Successfully stored OpenRouter API key for user:', userId, 'with prefix:', keyPrefix)
 
-    // Fetch the full token info from OpenRouter API to get expires_at and other metadata
-    console.log('[OpenRouter Callback] Fetching complete token info from OpenRouter API')
+    // Fetch additional token metadata from OpenRouter API
     try {
       const keyInfoResponse = await fetch('https://openrouter.ai/api/v1/auth/key', {
         headers: {
@@ -183,15 +194,11 @@ export async function GET(request: NextRequest) {
 
       if (keyInfoResponse.ok) {
         const keyInfoData = await keyInfoResponse.json()
-        console.log('[OpenRouter Callback] Received complete key info:', {
-          hasData: !!keyInfoData.data,
-          allKeys: keyInfoData.data ? Object.keys(keyInfoData.data) : [],
-        })
-
         const fullData = keyInfoData.data
+
         if (fullData) {
-          // Update with complete information from OpenRouter
-          const completeUpdateData: any = {
+          // Update with usage/limit info from OpenRouter
+          const metadataUpdate: any = {
             expires_at: fullData.expires_at || null,
             credit_limit: fullData.limit !== undefined ? fullData.limit : null,
             limit_remaining: fullData.limit_remaining !== undefined ? fullData.limit_remaining : null,
@@ -199,25 +206,20 @@ export async function GET(request: NextRequest) {
             updated_at: new Date().toISOString(),
           }
 
-          console.log('[OpenRouter Callback] Updating with complete info:', completeUpdateData)
-
           await supabase
             .from('user_openrouter_tokens')
-            .update(completeUpdateData)
+            .update(metadataUpdate)
             .eq('user_id', userId)
-
-          console.log('[OpenRouter Callback] Successfully updated with complete token info')
         }
-      } else {
-        console.warn('[OpenRouter Callback] Failed to fetch complete key info:', keyInfoResponse.status)
       }
     } catch (fetchError) {
-      console.error('[OpenRouter Callback] Error fetching complete key info:', fetchError)
-      // Don't fail the whole flow if we can't fetch additional info
+      console.error('[OpenRouter Callback] Error fetching token metadata:', fetchError)
     }
 
-    // Success! Redirect back to app
-    return NextResponse.redirect(`${appUrl}?openrouter_success=true`)
+    // Success! Redirect back to app and clear the state cookie
+    const successResponse = NextResponse.redirect(`${appUrl}?openrouter_success=true`)
+    successResponse.cookies.delete('openrouter_state')
+    return successResponse
   } catch (error) {
     console.error('OpenRouter callback error:', error)
     return NextResponse.redirect(

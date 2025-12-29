@@ -73,10 +73,21 @@ export async function POST(request: NextRequest) {
     openRouterAuthUrl.searchParams.set('code_challenge', codeChallenge)
     openRouterAuthUrl.searchParams.set('code_challenge_method', 'S256')
 
-    return NextResponse.json({
+    // Create response with state cookie for CSRF validation
+    const response = NextResponse.json({
       authUrl: openRouterAuthUrl.toString(),
-      state,
     })
+
+    // Set state in a secure, httpOnly cookie for CSRF validation in callback
+    response.cookies.set('openrouter_state', state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 10 * 60, // 10 minutes, same as pending_expires_at
+      path: '/',
+    })
+
+    return response
   } catch (error) {
     console.error('OpenRouter initiate error:', error)
     return NextResponse.json(

@@ -18,7 +18,7 @@ export async function GET() {
 
     const { data: tokenRecord, error } = await supabase
       .from('user_openrouter_tokens')
-      .select('encrypted_api_key, key_prefix, key_label, last_used_at, created_at, expires_at, credit_limit, limit_remaining, usage')
+      .select('encrypted_api_key, key_prefix, last_used_at, created_at, expires_at, credit_limit, limit_remaining, usage')
       .eq('user_id', userId)
       .single()
 
@@ -60,7 +60,6 @@ export async function GET() {
       connected: true,
       tokenInfo: {
         keyPrefix: tokenRecord.key_prefix,
-        keyLabel: tokenRecord.key_label,
         lastUsedAt: tokenRecord.last_used_at,
         createdAt: tokenRecord.created_at,
         expiresAt: tokenRecord.expires_at,

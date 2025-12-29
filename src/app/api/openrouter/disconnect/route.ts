@@ -14,7 +14,7 @@ export async function POST() {
 
     const userId = session.user.id
 
-    // Delete the user's OpenRouter token
+    // Delete the user's OpenRouter token from our database
     const { error } = await supabase
       .from('user_openrouter_tokens')
       .delete()

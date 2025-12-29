@@ -27,7 +27,8 @@
       "Bash(kill:*)",
       "Bash(supabase status:*)",
       "Bash(npx tsc:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(docker exec:*)"
     ]
   }
 }

@@ -381,3 +381,38 @@ ANTHROPIC_API_KEY
 - Modal bloqueante al intentar acción AI
 - Feedback claro de estado conectado/desconectado
 - Manejo de errores de OAuth
+
+---
+
+## TODOs Pendientes
+
+### 1. Testear funcionamiento de todos los lugares donde se usa algún modelo de AI
+**Prioridad**: Alta
+**Estado**: Pendiente (requiere testing manual)
+**Descripción**: Validación exhaustiva de que la integración con OpenRouter funciona correctamente en todos los puntos de la aplicación que usan modelos de AI.
+
+**Puntos de integración identificados**:
+
+| Componente | Función | API | Test |
+|-----------|---------|-----|------|
+| `execute-flow-step` | `executeModel()` | OpenRouter | Token decrypt, modelo selection |
+| `execute-flow-step` | `callOpenRouter()` | OpenRouter | Mapeo de modelos, errores API |
+| `execute-flow-step` | `callDeepResearch()` | Google Interactions | Creación async, polling |
+| `poll-deep-research` | Estado extraction | Google API | Estados, thinking summaries |
+| `run-step` | Orquestación | Edge Function | Timeout, retry, feedback |
+| `openrouter/models` | Lista dinámica | OpenRouter | Filtrado, pricing, autenticación |
+| `openrouter/callback` | OAuth | OpenRouter API | Token exchange, encriptación |
+| `StepEditor` | Selector UI | OpenRouter | Carga, búsqueda, rendering |
+| `campaign/suggest-edit` | Edición AI | Gemini (directo) | Edición parcial, estructura |
+
+**Checklist de testing manual**:
+- [ ] Ejecutar un paso con modelo de OpenAI vía OpenRouter
+- [ ] Ejecutar un paso con modelo de Anthropic vía OpenRouter
+- [ ] Ejecutar un paso con modelo de Google vía OpenRouter
+- [ ] Probar Deep Research (usa Google API directa, no OpenRouter)
+- [ ] Verificar manejo de errores cuando OpenRouter falla
+- [ ] Verificar comportamiento cuando el token expira
+- [ ] Probar retry con modelo alternativo (fallback)
+- [ ] Probar la edición AI asistida (`suggest-edit` usa Gemini directo)
+- [ ] Verificar el selector de modelos dinámico carga correctamente
+

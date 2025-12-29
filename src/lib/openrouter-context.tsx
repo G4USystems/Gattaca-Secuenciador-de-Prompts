@@ -2,10 +2,10 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from './auth-context'
+import { useToast } from '@/components/ui/Toast/ToastContext'
 
 interface TokenInfo {
   keyPrefix: string
-  keyLabel: string | null
   lastUsedAt: string | null
   createdAt: string
   expiresAt: string | null
@@ -28,6 +28,7 @@ const OpenRouterContext = createContext<OpenRouterContextType | undefined>(undef
 
 export function OpenRouterProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
+  const toast = useToast()
   const [isConnected, setIsConnected] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null)
@@ -139,6 +140,8 @@ export function OpenRouterProvider({ children }: { children: React.ReactNode }) 
       console.error('[OpenRouter] OAuth error:', error)
       // Remove query params from URL
       window.history.replaceState({}, '', window.location.pathname)
+      // Show error toast
+      toast.error('Error de autorización', 'No se autorizó la conexión con OpenRouter')
     }
   }, []) // Empty deps - only run once
 

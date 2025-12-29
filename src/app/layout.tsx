@@ -30,16 +30,16 @@ export default function RootLayout({
     <html lang="es">
       <body>
         <AuthProvider>
-          <OpenRouterProvider>
-            <UIProviders>
-            <div className="min-h-screen flex flex-col">
-              <Header />
-              <div className="flex-1">
-                {children}
+          <UIProviders>
+            <OpenRouterProvider>
+              <div className="min-h-screen flex flex-col">
+                <Header />
+                <div className="flex-1">
+                  {children}
+                </div>
               </div>
-            </div>
+            </OpenRouterProvider>
           </UIProviders>
-          </OpenRouterProvider>
         </AuthProvider>
       </body>
     </html>
