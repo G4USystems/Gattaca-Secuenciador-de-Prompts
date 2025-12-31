@@ -11,10 +11,21 @@ interface OpenRouterAuthModalProps {
 }
 
 export default function OpenRouterAuthModal({ isOpen, onClose, trigger = 'action' }: OpenRouterAuthModalProps) {
-  const { initiateOAuth, isConnected, disconnect, tokenInfo, isLoading } = useOpenRouter()
+  const { initiateOAuth, isConnected, disconnect, tokenInfo, isLoading, refreshStatus } = useOpenRouter()
   const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [refreshingBalance, setRefreshingBalance] = useState(false)
+
+  // Refresh balance from OpenRouter when modal opens and user is connected
+  useEffect(() => {
+    if (isOpen && isConnected && !refreshingBalance) {
+      setRefreshingBalance(true)
+      refreshStatus(true).finally(() => {
+        setRefreshingBalance(false)
+      })
+    }
+  }, [isOpen, isConnected])
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -191,11 +202,15 @@ export default function OpenRouterAuthModal({ isOpen, onClose, trigger = 'action
                 {/* Credit Information */}
                 {tokenInfo?.creditLimit !== null && tokenInfo?.creditLimit !== undefined && (
                   <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <DollarSign className="w-4 h-4 text-gray-400" />
+                    {refreshingBalance ? (
+                      <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                    ) : (
+                      <DollarSign className="w-4 h-4 text-gray-400" />
+                    )}
                     <span>
                       {tokenInfo.limitRemaining !== null && tokenInfo.limitRemaining !== undefined ? (
                         <>
-                          ${tokenInfo.limitRemaining.toFixed(2)} de ${tokenInfo.creditLimit.toFixed(2)} disponibles
+                          ${tokenInfo.limitRemaining.toFixed(4)} de ${tokenInfo.creditLimit.toFixed(2)} disponibles
                         </>
                       ) : (
                         <>Límite: ${tokenInfo.creditLimit.toFixed(2)}</>
@@ -208,7 +223,7 @@ export default function OpenRouterAuthModal({ isOpen, onClose, trigger = 'action
                 {tokenInfo?.usage !== null && tokenInfo?.usage !== undefined && tokenInfo.usage > 0 && (
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <CreditCard className="w-4 h-4 text-gray-400" />
-                    <span>Usado: ${tokenInfo.usage.toFixed(2)}</span>
+                    <span>Usado: ${tokenInfo.usage.toFixed(4)}</span>
                   </div>
                 )}
               </div>
